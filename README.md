@@ -26,7 +26,7 @@ python -m http.server 8000
 ## 存檔 key（`localStorage`）
 
 `hg-angry-best`・`hg-angry-level`・`hg-tower-best`・`hg-tower-wave`・
-`hg-survivor-best`・`hg-survivor-kills`・`hg-hippo-best`
+`hg-survivor-best`・`hg-survivor-kills`・`hg-survivor-board`（倖存者前 10 名榮譽榜）・`hg-hippo-best`
 
 ## 參考的開源 repo
 

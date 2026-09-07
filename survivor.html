@@ -55,6 +55,12 @@
   @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
   .best-line{margin-top:10px;font-size:14px;color:#ffe9a8}
   .ctrl-hint{margin-top:12px;font-size:12.5px;color:#8f86ad;line-height:1.8}
+  .board{margin:14px auto 4px;max-width:430px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px 14px;text-align:left}
+  .brow{display:flex;gap:10px;align-items:center;font-size:13.5px;font-weight:700;padding:6px 4px;border-bottom:1px dashed rgba(255,255,255,.1);color:#e8defc}
+  .brow:last-child{border-bottom:none}
+  .brow.me{background:rgba(255,209,102,.14);border-radius:8px;color:#ffe9a8}
+  .brow .br{width:36px}.brow .bd{margin-left:auto;font-size:11.5px;color:#8f86ad;font-weight:400}
+  .linkbtn{background:none;border:none;color:#8f86ad;font-size:12px;margin-top:8px;text-decoration:underline;padding:4px}
   #tip{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);font-size:12px;color:rgba(255,255,255,.85);background:rgba(0,0,0,.5);padding:5px 16px;border-radius:999px;z-index:5;white-space:nowrap}
   #home{position:absolute;top:56px;left:12px;z-index:7}
   #home a{font-size:12.5px;color:#cfe0ef;text-decoration:none;background:rgba(0,0,0,.5);padding:6px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.15)}
@@ -90,8 +96,11 @@ const _last={};
 function throttled(k,ms){const n=performance.now();if(n-(_last[k]||0)<ms)return false;_last[k]=n;return true;}
 const sfx={shoot:()=>{if(throttled('s',120))beep(700,.06,'sawtooth',.03);},hit:()=>{if(throttled('h',90))beep(200,.07,'square',.05);},gem:()=>{if(throttled('g',70))beep(1100,.06,'sine',.05);},up:()=>{[523,659,784].forEach((f,i)=>setTimeout(()=>beep(f,.15,'triangle',.08),i*90));},hurt:()=>beep(140,.2,'sawtooth',.09),boss:()=>beep(90,.5,'sawtooth',.1),over:()=>{[400,300,220,150].forEach((f,i)=>setTimeout(()=>beep(f,.25,'sawtooth',.08),i*170));},nova:()=>beep(120,.4,'sawtooth',.1)};
 /* ---------- 存檔 ---------- */
-const K_TIME='hg-survivor-best',K_KILL='hg-survivor-kills';
+const K_TIME='hg-survivor-best',K_KILL='hg-survivor-kills',K_BOARD='hg-survivor-board';
 let BEST=0;try{BEST=+((localStorage.getItem(K_TIME))||0);}catch(e){}
+function fmtTime(s){s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function getBoard(){try{const b=JSON.parse(localStorage.getItem(K_BOARD)||'[]');return Array.isArray(b)?b:[];}catch(e){return[];}}
+function saveBoard(b){try{localStorage.setItem(K_BOARD,JSON.stringify(b.slice(0,10)));}catch(e){}}
 /* ---------- 預渲染精靈（美術＋效能：漸層光暈一次畫好，每幀只貼圖） ---------- */
 function makeSprite(size,fn){const c=document.createElement('canvas');c.width=c.height=size;fn(c.getContext('2d'),size);return c;}
 function shade(hex,amt){const n=parseInt(hex.slice(1),16);let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt;
@@ -246,7 +255,9 @@ function showStart(){
   reset();paused=true;started=false;draw();
   $('c-title').textContent='🌙 午夜倖存者';
   $('c-sub').innerHTML='在怪物浪潮中活下去，撿💎升級、疊出你的流派<br>每 60 秒一隻 BOSS，越晚越刺激';
-  $('c-body').innerHTML='<div class="best-line">'+(BEST>0?('🏆 歷史最佳：存活 '+Math.floor(BEST)+' 秒'):'還沒有紀錄，來寫下第一筆！')+'</div>'+
+  const top3=getBoard().slice(0,3),medal3=['🥇','🥈','🥉'];
+  $('c-body').innerHTML='<div class="best-line">'+(BEST>0?('🏆 歷史最佳：存活 '+fmtTime(BEST)):'還沒有紀錄，來寫下第一筆！')+'</div>'+
+    (top3.length?'<div class="board">'+top3.map((r,i)=>`<div class="brow"><span class="br">${medal3[i]}</span><span>${fmtTime(r.t)}</span><span>Lv.${r.l}</span><span>${r.k}殺</span></div>`).join('')+'</div>':'')+
     '<div class="ctrl-hint">⌨️ WASD／方向鍵移動・武器全自動<br>📱 手機直接拖曳螢幕（浮動搖桿）</div>';
   $('c-row').innerHTML='<button class="btn-big" id="c-start">▶ 開始挑戰</button>';
   $('panel').style.display='flex';
@@ -329,12 +340,21 @@ function die(){
     const pk=+((localStorage.getItem(K_KILL))||0);
     if(kills>pk){localStorage.setItem(K_KILL,String(kills));kb=true;}
   }catch(e){}
+  let board=getBoard();
+  const rec={t:Math.floor(elapsed),k:kills,l:P.lvl,d:new Date().toLocaleDateString()};
+  board.push(rec);board.sort((a,b)=>b.t-a.t||b.k-a.k);board=board.slice(0,10);saveBoard(board);
+  const rank=board.indexOf(rec)+1;
   const m=Math.floor(elapsed/60),s=Math.floor(elapsed%60);
   $('c-title').textContent='💀 挑戰結束';
   $('c-sub').innerHTML=`存活 <b>${m}:${String(s).padStart(2,'0')}</b>・等級 <b>Lv.${P.lvl}</b>・擊殺 <b>${kills}</b><br>`+
-    (nb?'🏆 <b>新紀錄！最長存活</b><br>':(BEST>0?`歷史最佳存活 <b>${Math.floor(BEST/60)}:${String(Math.floor(BEST%60)).padStart(2,'0')}</b><br>`:''))+
-    (kb?'🏆 <b>新紀錄！最多擊殺</b>':'');
-  $('c-body').innerHTML='';
+    (nb?'🏆 <b>新紀錄！最長存活</b><br>':(BEST>0?`歷史最佳存活 <b>${fmtTime(BEST)}</b><br>`:''))+
+    (kb?'🏆 <b>新紀錄！最多擊殺</b><br>':'')+
+    `本局榮譽榜第 <b>#${rank}</b> 名（共 ${board.length} 筆）`;
+  const medal=['🥇','🥈','🥉'];
+  $('c-body').innerHTML='<div class="board">'+board.map((r,i)=>
+    `<div class="brow${r===rec?' me':''}"><span class="br">${medal[i]||('#'+(i+1))}</span><span>${fmtTime(r.t)}</span><span>Lv.${r.l}</span><span>${r.k}殺</span><span class="bd">${r.d}</span></div>`
+  ).join('')+'</div><button class="linkbtn" id="c-clear">清除榮譽榜</button>';
+  $('c-clear').onclick=()=>{try{localStorage.removeItem(K_BOARD);}catch(e){}$('c-body').innerHTML='<div class="best-line">已清除，從零開始寫傳說！</div>';};
   $('c-row').innerHTML=`<button class="btn-warning" id="c-again">↻ 再來一局</button><a href="index.html" style="text-decoration:none"><button class="btn-ghost">◀ 回大廳</button></a>`;
   $('panel').style.display='flex';
   $('c-again').onclick=()=>{reset();};
