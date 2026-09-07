@@ -61,6 +61,14 @@
   .brow.me{background:rgba(255,209,102,.14);border-radius:8px;color:#ffe9a8}
   .brow .br{width:36px}.brow .bd{margin-left:auto;font-size:11.5px;color:#8f86ad;font-weight:400}
   .linkbtn{background:none;border:none;color:#8f86ad;font-size:12px;margin-top:8px;text-decoration:underline;padding:4px}
+  .tabrow{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  .tabbtn{background:rgba(255,255,255,.08);color:#cfc2ea;border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:7px 22px;font-size:14px}
+  .tabbtn.on{background:linear-gradient(180deg,#b565ff,#7b2cbf);color:#fff;border-color:transparent}
+  .uprow{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  #p-name{flex:1;max-width:230px;background:rgba(0,0,0,.4);border:1px solid rgba(199,125,255,.5);border-radius:10px;color:#fff;font-size:15px;font-weight:700;padding:9px 12px;font-family:inherit;outline:none}
+  #b-upload{padding:9px 18px;font-size:14px}
+  #b-upload:disabled{opacity:.5}
+  #up-msg{font-size:12.5px;color:#ffe9a8;min-height:18px;margin-top:6px}
   #tip{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);font-size:12px;color:rgba(255,255,255,.85);background:rgba(0,0,0,.5);padding:5px 16px;border-radius:999px;z-index:5;white-space:nowrap}
   #home{position:absolute;top:56px;left:12px;z-index:7}
   #home a{font-size:12.5px;color:#cfe0ef;text-decoration:none;background:rgba(0,0,0,.5);padding:6px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.15)}
@@ -101,6 +109,14 @@ let BEST=0;try{BEST=+((localStorage.getItem(K_TIME))||0);}catch(e){}
 function fmtTime(s){s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 function getBoard(){try{const b=JSON.parse(localStorage.getItem(K_BOARD)||'[]');return Array.isArray(b)?b:[];}catch(e){return[];}}
 function saveBoard(b){try{localStorage.setItem(K_BOARD,JSON.stringify(b.slice(0,10)));}catch(e){}}
+/* ---------- 全球榜（Supabase，publishable key 前端公開＋RLS保護） ---------- */
+const SB_URL='https://qvcxnnfhppjyzlfguygf.supabase.co';
+const SB_KEY='sb_publishable_fHs9qysbwPYB-d5mRnmeUg_TRNhAxG8';
+const K_NAME='hg-survivor-name';
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function sbH(json){const h={apikey:SB_KEY,Authorization:'Bearer '+SB_KEY};if(json)h['Content-Type']='application/json';return h;}
+async function sbTop10(){const r=await fetch(SB_URL+'/rest/v1/scores?select=name,time,kills,level&order=time.desc&limit=10',{headers:sbH()});if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+async function sbUpload(o){const r=await fetch(SB_URL+'/rest/v1/scores',{method:'POST',headers:{...sbH(true),Prefer:'return=representation'},body:JSON.stringify([{name:o.name,time:o.t,kills:o.k,level:o.l}])});if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
 /* ---------- 預渲染精靈（美術＋效能：漸層光暈一次畫好，每幀只貼圖） ---------- */
 function makeSprite(size,fn){const c=document.createElement('canvas');c.width=c.height=size;fn(c.getContext('2d'),size);return c;}
 function shade(hex,amt){const n=parseInt(hex.slice(1),16);let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt;
@@ -258,7 +274,11 @@ function showStart(){
   const top3=getBoard().slice(0,3),medal3=['🥇','🥈','🥉'];
   $('c-body').innerHTML='<div class="best-line">'+(BEST>0?('🏆 歷史最佳：存活 '+fmtTime(BEST)):'還沒有紀錄，來寫下第一筆！')+'</div>'+
     (top3.length?'<div class="board">'+top3.map((r,i)=>`<div class="brow"><span class="br">${medal3[i]}</span><span>${fmtTime(r.t)}</span><span>Lv.${r.l}</span><span>${r.k}殺</span></div>`).join('')+'</div>':'')+
+    '<div id="g-top"><div class="best-line">🌍 全球榜讀取中…</div></div>'+
     '<div class="ctrl-hint">⌨️ WASD／方向鍵移動・武器全自動<br>📱 手機直接拖曳螢幕（浮動搖桿）</div>';
+  (async()=>{try{const g=(await sbTop10()).slice(0,3),gt=$('g-top');if(!gt)return;
+    gt.innerHTML=g.length?'<div class="board">'+g.map((r,i)=>`<div class="brow"><span class="br">${medal3[i]}</span><span>${esc(r.name)}</span><span>${fmtTime(r.time)}</span><span>Lv.${r.level}</span></div>`).join('')+'</div>':'<div class="best-line">🌍 全球榜還是空的</div>';
+  }catch(e){const gt=$('g-top');if(gt)gt.innerHTML='<div class="best-line">🌍 全球榜離線中</div>';}})();
   $('c-row').innerHTML='<button class="btn-big" id="c-start">▶ 開始挑戰</button>';
   $('panel').style.display='flex';
   $('c-start').onclick=()=>{try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();}catch(e){}reset();started=true;showBanner('🌙 活下去！','撿寶石・升級・撐過午夜');};
@@ -350,10 +370,32 @@ function die(){
     (nb?'🏆 <b>新紀錄！最長存活</b><br>':(BEST>0?`歷史最佳存活 <b>${fmtTime(BEST)}</b><br>`:''))+
     (kb?'🏆 <b>新紀錄！最多擊殺</b><br>':'')+
     `本局榮譽榜第 <b>#${rank}</b> 名（共 ${board.length} 筆）`;
+  let savedName='';try{savedName=localStorage.getItem(K_NAME)||'';}catch(e){}
   const medal=['🥇','🥈','🥉'];
-  $('c-body').innerHTML='<div class="board">'+board.map((r,i)=>
+  const localHtml='<div class="board">'+board.map((r,i)=>
     `<div class="brow${r===rec?' me':''}"><span class="br">${medal[i]||('#'+(i+1))}</span><span>${fmtTime(r.t)}</span><span>Lv.${r.l}</span><span>${r.k}殺</span><span class="bd">${r.d}</span></div>`
-  ).join('')+'</div><button class="linkbtn" id="c-clear">清除榮譽榜</button>';
+  ).join('')+'</div>';
+  $('c-body').innerHTML=
+    `<div class="tabrow"><button class="tabbtn on" id="tab-local">📱 本機榜</button><button class="tabbtn" id="tab-global">🌍 全球榜</button></div>`+
+    `<div class="uprow"><input id="p-name" maxlength="12" placeholder="輸入名字上傳全球榜" value="${esc(savedName)}"><button class="btn-warning" id="b-upload">⬆ 上傳</button></div><div id="up-msg"></div>`+
+    `<div id="board-box">${localHtml}</div><button class="linkbtn" id="c-clear">清除本機榜</button>`;
+  const box=$('board-box');
+  $('tab-local').onclick=()=>{$('tab-local').classList.add('on');$('tab-global').classList.remove('on');box.innerHTML=localHtml;};
+  $('tab-global').onclick=async()=>{$('tab-global').classList.add('on');$('tab-local').classList.remove('on');
+    box.innerHTML='<div class="best-line">🌍 讀取全球榜…</div>';
+    try{const g=await sbTop10();
+      box.innerHTML=g.length?'<div class="board">'+g.map((r,i)=>`<div class="brow"><span class="br">${medal[i]||('#'+(i+1))}</span><span>${esc(r.name)}</span><span>${fmtTime(r.time)}</span><span>Lv.${r.level}</span><span>${r.kills}殺</span></div>`).join('')+'</div>'
+        :'<div class="best-line">全球榜還是空的，你來當第一筆！</div>';
+    }catch(e){box.innerHTML='<div class="best-line">⚠️ 讀不到全球榜（離線或後端表還沒建），先看本機榜吧</div>';}};
+  $('b-upload').onclick=async()=>{
+    const nm=$('p-name').value.trim().slice(0,12);
+    if(!nm){$('up-msg').textContent='先輸入名字再上傳！';return;}
+    try{localStorage.setItem(K_NAME,nm);}catch(e){}
+    $('up-msg').textContent='上傳中…';$('b-upload').disabled=true;
+    try{await sbUpload({name:nm,t:Math.floor(elapsed),k:kills,l:P.lvl});
+      $('up-msg').textContent='✅ 已上傳！切到全球榜看排名';$('tab-global').onclick();
+    }catch(e){$('up-msg').textContent='⚠️ 上傳失敗（檢查網路／SQL表建了沒）';}
+    $('b-upload').disabled=false;};
   $('c-clear').onclick=()=>{try{localStorage.removeItem(K_BOARD);}catch(e){}$('c-body').innerHTML='<div class="best-line">已清除，從零開始寫傳說！</div>';};
   $('c-row').innerHTML=`<button class="btn-warning" id="c-again">↻ 再來一局</button><a href="index.html" style="text-decoration:none"><button class="btn-ghost">◀ 回大廳</button></a>`;
   $('panel').style.display='flex';

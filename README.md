@@ -26,7 +26,12 @@ python -m http.server 8000
 ## 存檔 key（`localStorage`）
 
 `hg-angry-best`・`hg-angry-level`・`hg-tower-best`・`hg-tower-wave`・
-`hg-survivor-best`・`hg-survivor-kills`・`hg-survivor-board`（倖存者前 10 名榮譽榜）・`hg-hippo-best`
+`hg-survivor-best`・`hg-survivor-kills`・`hg-survivor-board`（倖存者前 10 名榮譽榜）・`hg-survivor-name`（上傳用暱稱）・`hg-hippo-best`
+
+## 全球榜（Supabase）
+
+倖存者結算可上傳到 Supabase `scores` 表（`time/kills/level/name`），RLS 只開公開讀＋寫入，
+外加 CHECK 擋亂填。前端用 publishable key 直連 REST，無後端程式。
 
 ## 參考的開源 repo
 
