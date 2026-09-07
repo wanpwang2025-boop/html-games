@@ -2,7 +2,7 @@
 
 免安裝・單檔 HTML5 小遊戲合集。直接用瀏覽器開啟就能玩，最佳成績存在 `localStorage`。
 
-**線上玩：** https://wanpwang1981-ux.github.io/html-games/ （推上 GitHub 後開 Pages 即生效）
+**線上玩：** https://wanpwang2025-boop.github.io/html-games/
 
 ## 遊戲一覽
 
