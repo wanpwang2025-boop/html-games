@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML Games 遊戲大廳</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;min-height:100%;background:#0b1622;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;color:#fff}
+  #app{max-width:1080px;margin:0 auto;padding:36px 20px 60px;background:radial-gradient(1000px 500px at 50% 0%,#1b3a55 0%,#0b1622 60%)}
+  header{text-align:center;margin-bottom:8px}
+  header h1{font-size:38px;letter-spacing:1px}
+  header p{color:#9fc3dd;margin-top:6px;font-size:15px}
+  #best-bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:18px 0 26px}
+  .pill{background:rgba(8,20,32,.8);border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:700;white-space:nowrap}
+  .pill b{color:#ffd166}
+  #grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:22px 18px;text-align:center;transition:transform .15s,background .15s}
+  .card:hover{transform:translateY(-4px);background:rgba(255,255,255,.09)}
+  .card .icon{font-size:52px}
+  .card h2{font-size:20px;margin:10px 0 4px}
+  .card .en{font-size:12px;color:#8fd6ff}
+  .card .desc{font-size:13.5px;color:#cfe0ef;line-height:1.6;margin:10px 0;min-height:44px}
+  .card .best{font-size:13px;color:#ffe9a8;margin-bottom:12px;min-height:20px}
+  .card a{display:inline-block;text-decoration:none;background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200;font-weight:800;border-radius:10px;padding:9px 26px;font-size:15px}
+  .card a:hover{filter:brightness(1.1)}
+  footer{text-align:center;color:#6b8aa3;font-size:12.5px;margin-top:34px;line-height:1.8}
+  footer a{color:#8fd6ff}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🎮 HTML Games</h1>
+    <p>免安裝・單檔 HTML5 小遊戲合集｜分數自動存在本機瀏覽器</p>
+  </header>
+  <div id="best-bar">
+    <div class="pill">🐦 憤怒鳥最佳 <b id="b-angry">—</b></div>
+    <div class="pill">🏰 守塔最佳 <b id="b-tower">—</b></div>
+    <div class="pill">🦛 河馬最佳 <b id="b-hippo">—</b></div>
+    <div class="pill">🧛 倖存者最佳 <b id="b-survivor">—</b></div>
+  </div>
+  <div id="grid">
+    <div class="card">
+      <div class="icon">🐦</div>
+      <h2>憤怒鳥大作戰</h2>
+      <div class="en">Angry Birds</div>
+      <div class="desc">拉弓瞄準，一口氣轟掉所有綠豬！3 關前哨戰＋無限隨機關。</div>
+      <div class="best" id="c-angry"></div>
+      <a href="angry-birds.html">▶ 開始遊戲</a>
+    </div>
+    <div class="card">
+      <div class="icon">🏰</div>
+      <h2>魔法守塔戰</h2>
+      <div class="en">Tower Defense・12波</div>
+      <div class="desc">蓋塔、合成、相剋，撐過 12 波（含 3 隻 BOSS）。</div>
+      <div class="best" id="c-tower"></div>
+      <a href="tower-defense.html">▶ 開始遊戲</a>
+    </div>
+    <div class="card">
+      <div class="icon">🧛</div>
+      <h2>午夜倖存者</h2>
+      <div class="en">Survivor-like</div>
+      <div class="desc">走位拉怪、自動攻擊、撿寶石升級，活得越久越強！</div>
+      <div class="best" id="c-survivor"></div>
+      <a href="survivor.html">▶ 開始遊戲</a>
+    </div>
+    <div class="card">
+      <div class="icon">🦛</div>
+      <h2>河馬水中芭蕾</h2>
+      <div class="en">3D Water Ballet</div>
+      <div class="desc">Three.js 水花物理展示：跳水・漣漪・芭蕾・評審打分。</div>
+      <div class="best" id="c-hippo"></div>
+      <a href="hippo-water-ballet.html">▶ 觀看演出</a>
+    </div>
+  </div>
+  <footer>
+    最佳成績 key：<code>hg-angry-best</code>・<code>hg-tower-best</code>・<code>hg-survivor-best</code>・<code>hg-hippo-best</code><br>
+    架構參考：<a href="https://github.com/prateek121/90s-games">prateek121/90s-games</a>（單檔＋index 大廳＋localStorage）・
+    <a href="https://github.com/ricardo-foundry/canvas-vampire-survivors">canvas-vampire-survivors</a>（倖存者玩法）
+  </footer>
+</div>
+<script>
+function get(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+var ab=get('hg-angry-best'),al=get('hg-angry-level');
+var tb=get('hg-tower-best'),tw=get('hg-tower-wave');
+var hb=get('hg-hippo-best');
+var st=get('hg-survivor-best'),sk=get('hg-survivor-kills');
+document.getElementById('b-angry').textContent=ab?ab+' 分':'—';
+document.getElementById('b-tower').textContent=tb?tb+' 分':'—';
+document.getElementById('b-hippo').textContent=hb?hb+' 分':'—';
+document.getElementById('b-survivor').textContent=st?Math.floor(st)+' 秒':'—';
+document.getElementById('c-angry').textContent=ab?('🏆 最佳 '+ab+' 分'+(al?'・第'+al+'關':'')):'還沒留下紀錄，來當第一個！';
+document.getElementById('c-tower').textContent=tb?('🏆 總分 '+tb+(tw?'・守到第'+tw+'波':'')):'還沒留下紀錄，來當第一個！';
+document.getElementById('c-survivor').textContent=st?('🏆 存活 '+Math.floor(st)+' 秒'+(sk?'・'+sk+' 殺':'')):'還沒留下紀錄，來當第一個！';
+document.getElementById('c-hippo').textContent=hb?('🏆 評審給過 '+hb+' 分'):'還沒留下紀錄，來當第一個！';
+</script>
+</body>
+</html>

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>憤怒鳥大作戰 | Angry Birds</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#0b1622;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden}
+  #app{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 700px at 50% 15%,#1b3a55 0%,#0b1622 70%)}
+  #stage{position:relative;aspect-ratio:16/9;width:min(100vw,177.78vh);max-height:100vh;border-radius:14px;overflow:hidden;box-shadow:0 20px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}
+  canvas{width:100%;height:100%;display:block;cursor:crosshair}
+  #hud{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:5;pointer-events:none}
+  .pill{background:rgba(8,20,32,.75);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800;white-space:nowrap}
+  .pill b{color:#ffd166}
+  #btns{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:6}
+  button{cursor:pointer;border:none;border-radius:10px;padding:8px 14px;font-size:14px;font-weight:800;font-family:inherit}
+  .btn-warning{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200}
+  .btn-ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)}
+  button:hover{filter:brightness(1.1)} button:active{transform:translateY(1px)}
+  #panel{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:10}
+  #card{background:linear-gradient(180deg,#fffdf4,#ffeec2);border-radius:18px;padding:30px 44px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);max-width:82%}
+  #card h2{font-size:34px;margin-bottom:6px}
+  #card p{font-size:16px;color:#5b4a00;margin:4px 0}
+  #stars{font-size:40px;letter-spacing:4px;margin:6px 0}
+  #card .row{display:flex;gap:10px;justify-content:center;margin-top:14px}
+  #tip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:12.5px;color:#fff;background:rgba(0,0,0,.5);padding:5px 16px;border-radius:999px;z-index:5;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="hud">
+    <div class="pill">🐦 <span id="h-level">第 1 關</span></div>
+    <div class="pill">⭐ 分數 <b id="h-score">0</b></div>
+    <div class="pill">🏆 最佳 <b id="h-best">—</b></div>
+    <div class="pill">🎯 剩餘 <b id="h-birds">3</b></div>
+    <div class="pill">🐷 豬豬 <b id="h-pigs">0</b></div>
+  </div>
+  <div id="btns">
+    <button class="btn-ghost" id="b-prev">◀ 上一關</button>
+    <button class="btn-ghost" id="b-next">下一關 ▶</button>
+    <button class="btn-warning" id="b-restart">↻ 重新開始</button>
+  </div>
+  <div id="panel"><div id="card">
+    <h2 id="c-title">過關！</h2>
+    <div id="stars">★★★</div>
+    <p id="c-sub"></p>
+    <div class="row">
+      <button class="btn-ghost" style="color:#333;border-color:#999" id="c-retry">↻ 重玩本關</button>
+      <button class="btn-warning" id="c-go">下一關 ▶</button>
+    </div>
+  </div></div>
+  <div id="tip">🖱️ 按住紅鳥往後拉，瞄準虛線後放開射出！一口氣消滅所有綠豬 🐷</div>
+</div></div>
+<script>
+"use strict";
+const W=1280,H=720,GROUND_Y=640,GRAV=1500;
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const SLING={x:190,y:505};
+
+/* ---------- 音效（WebAudio 合成，無需外部檔） ---------- */
+let AC=null;
+function beep(f,d=.12,type='square',v=.08){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+const sfx={shoot:()=>beep(500,.15,'sawtooth',.07),hit:()=>beep(180,.1,'square',.09),wood:()=>beep(300,.08,'triangle',.1),pig:()=>{beep(700,.1,'square',.1);setTimeout(()=>beep(900,.15,'square',.1),90);},win:()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.2,'triangle',.1),i*130));},lose:()=>{[400,300,220].forEach((f,i)=>setTimeout(()=>beep(f,.25,'sawtooth',.08),i*160));}};
+
+/* ---------- 關卡定義 ---------- */
+const BIRD_COLORS=['#e63946','#f4a261','#2a9d8f','#e9c46a','#9b5de5'];
+function blk(x,y,w,h,type){const hp={wood:40,glass:22,stone:75}[type];return{x,y,w,h,type,hp,maxHp:hp,vx:0,vy:0,alive:true};}
+const LEVELS=[
+ {birds:4,blocks:[blk(880,560,26,160,'wood'),blk(1014,560,26,160,'wood'),blk(893,540,135,26,'wood'),blk(920,460,26,120,'wood'),blk(974,460,26,120,'wood'),blk(915,438,110,24,'glass')],
+  pigs:[{x:947,y:596,r:26},{x:947,y:410,r:24}]},
+ {birds:5,blocks:[blk(760,560,26,160,'wood'),blk(894,560,26,160,'wood'),blk(773,540,135,26,'stone'),blk(790,460,26,120,'glass'),blk(864,460,26,120,'glass'),blk(785,438,110,24,'wood'),blk(1020,580,26,120,'wood'),blk(1124,580,26,120,'wood'),blk(1015,558,135,26,'wood')],
+  pigs:[{x:840,y:596,r:26},{x:840,y:410,r:24},{x:1072,y:610,r:26}]},
+ {birds:5,blocks:[blk(700,560,26,160,'stone'),blk(834,560,26,160,'stone'),blk(695,540,165,26,'stone'),blk(730,440,26,140,'wood'),blk(824,440,26,140,'wood'),blk(725,418,150,24,'glass'),blk(990,560,26,160,'wood'),blk(1124,560,26,160,'wood'),blk(985,540,165,26,'wood'),blk(1040,460,26,120,'glass'),blk(1035,438,90,24,'wood')],
+  pigs:[{x:767,y:596,r:27},{x:777,y:390,r:24},{x:1057,y:596,r:26},{x:1057,y:410,r:22}]}
+];
+
+/* ---------- 自動生成關卡（第 4 關起無限，種子固定可重複挑戰） ---------- */
+function RNG(seed){let a=seed>>>0;return function(){a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+function pickMat(R,stoneP){const r=R();if(r<stoneP)return 'stone';if(r<stoneP+.35)return 'glass';return 'wood';}
+function genTower(R,B,P,cx,mat,mat2,second){
+  B.push(blk(cx-70,GROUND_Y-160,26,160,mat),blk(cx+44,GROUND_Y-160,26,160,mat));
+  B.push(blk(cx-83,GROUND_Y-186,192,26,mat2));
+  P.push({x:cx,y:GROUND_Y-26,r:26});
+  if(second){
+    B.push(blk(cx-45,GROUND_Y-306,24,120,mat2),blk(cx+21,GROUND_Y-306,24,120,mat2));
+    B.push(blk(cx-58,GROUND_Y-330,142,24,mat));
+    P.push({x:cx,y:GROUND_Y-210,r:24});
+    if(R()<.6)P.push({x:cx,y:GROUND_Y-352,r:22});
+  }else if(R()<.7){P.push({x:cx,y:GROUND_Y-210,r:24});}
+}
+function genFort(R,B,P,cx,mat,mat2){
+  const w=230;
+  B.push(blk(cx-w/2,GROUND_Y-160,26,160,mat),blk(cx-13,GROUND_Y-160,26,160,mat),blk(cx+w/2-26,GROUND_Y-160,26,160,mat));
+  B.push(blk(cx-w/2-13,GROUND_Y-186,w+26,26,mat2));
+  P.push({x:cx-60,y:GROUND_Y-26,r:26},{x:cx+60,y:GROUND_Y-26,r:26});
+  if(R()<.7)P.push({x:cx,y:GROUND_Y-209,r:23});
+}
+function genHut(R,B,P,cx,mat){
+  B.push(blk(cx-55,GROUND_Y-110,24,110,mat),blk(cx+31,GROUND_Y-110,24,110,mat));
+  B.push(blk(cx-68,GROUND_Y-132,162,22,mat));
+  P.push({x:cx,y:GROUND_Y-25,r:25});
+}
+function genLevel(n){ // n = 1-based 關卡號
+  const R=RNG(n*7919+13),B=[],P=[];
+  const stoneP=Math.min(.12+(n-4)*.07,.55);
+  const count=Math.min(2+Math.floor((n-4)/2),3);
+  const base=count===2?[800,1045]:[725,930,1110];
+  base.forEach((bx,i)=>{
+    const cx=bx+Math.floor((R()-.5)*36);
+    const mat=pickMat(R,stoneP),mat2=pickMat(R,stoneP);
+    const t=R();
+    if(t<.42)genTower(R,B,P,cx,mat,mat2,n>=6&&R()<Math.min(.3+n*.05,.85));
+    else if(t<.74)genFort(R,B,P,cx,mat,mat2);
+    else genHut(R,B,P,cx,mat);
+  });
+  if(P.length<2)P.push({x:1180,y:GROUND_Y-25,r:25});
+  return {birds:Math.min(Math.max(P.length+2,4),7),blocks:B,pigs:P};
+}
+function getLevel(n){return n<LEVELS.length?LEVELS[n]:genLevel(n+1);}
+
+/* ---------- 遊戲狀態 ---------- */
+let levelIdx=0,score=0,birds=[],pigs=[],blocks=[],particles=[],floaters=[];
+/* ---------- 最佳成績（localStorage，大廳 index.html 會讀） ---------- */
+const AB_KEY='hg-angry-best',AB_LV='hg-angry-level';
+let AB_BEST=0;try{AB_BEST=+(localStorage.getItem(AB_KEY)||0);}catch(e){}
+let birdIdx=0,phase='aim',settleTimer=0,shake=0,clouds=[];
+for(let i=0;i<6;i++)clouds.push({x:Math.random()*W,y:40+Math.random()*180,s:.5+Math.random(),v:8+Math.random()*14});
+function loadLevel(i){
+  levelIdx=Math.max(0,i);
+  const L=getLevel(levelIdx);
+  birds=[];for(let b=0;b<L.birds;b++)birds.push({x:SLING.x,y:SLING.y,vx:0,vy:0,r:24,color:BIRD_COLORS[b%BIRD_COLORS.length],state:b===0?'ready':'wait',trail:[]});
+  pigs=L.pigs.map(p=>({...p,vx:0,vy:0,hp:50,alive:true,blink:Math.random()*3}));
+  blocks=L.blocks.map(b=>({...b}));
+  particles=[];floaters=[];birdIdx=0;phase='aim';settleTimer=0;
+  document.getElementById('panel').style.display='none';
+  syncHud();
+}
+function syncHud(){
+  const ln=levelIdx+1;
+  document.getElementById('h-level').textContent=ln<=LEVELS.length?`第 ${ln} 關・前哨戰`:`第 ${ln} 關・無限模式`;
+  document.getElementById('h-score').textContent=score;
+  document.getElementById('h-best').textContent=AB_BEST>0?AB_BEST:'—';
+  document.getElementById('h-birds').textContent=Math.max(0,birds.length-birdIdx-(phase==='fly'?0:0))+(phase==='aim'?0:0);
+  document.getElementById('h-pigs').textContent=pigs.filter(p=>p.alive).length;
+  // 剩餘鳥數 = 還沒射的
+  let left=birds.filter(b=>b.state==='ready'||b.state==='wait'||b.state==='aim').length;
+  document.getElementById('h-birds').textContent=left;
+}
+function addScore(n,x,y,txt){score+=n;floaters.push({x,y,txt:(txt||('+'+n)),life:1.2});syncHud();}
+function burst(x,y,color,n=16,spd=320){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=spd*(.3+Math.random());particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-200,life:.6+Math.random()*.5,r:3+Math.random()*4,color});}}
+
+/* ---------- 操作：拉弓 ---------- */
+let dragging=false,dragPos={x:0,y:0};
+function evPos(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};}
+cv.addEventListener('mousedown',e=>{
+  if(phase!=='aim')return;const b=birds[birdIdx];if(!b||b.state!=='ready')return;
+  const p=evPos(e);if(Math.hypot(p.x-b.x,p.y-b.y)<60){dragging=true;b.state='aim';dragPos=p;sfx.hit();}
+});
+cv.addEventListener('mousemove',e=>{if(dragging)dragPos=evPos(e);});
+addEventListener('mouseup',e=>{
+  if(!dragging)return;dragging=false;
+  const b=birds[birdIdx];if(!b||b.state!=='aim')return;
+  let dx=SLING.x-b.x,dy=SLING.y-b.y;
+  if(Math.hypot(dx,dy)<15){b.x=SLING.x;b.y=SLING.y;b.state='ready';syncHud();return;}
+  b.vx=dx*9.0;b.vy=dy*9.0;
+  const sp=Math.hypot(b.vx,b.vy);if(sp>1700){b.vx*=1700/sp;b.vy*=1700/sp;}
+  b.state='fly';phase='fly';sfx.shoot();shake=4;syncHud();
+});
+// 觸控支援
+cv.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];cv.dispatchEvent(new MouseEvent('mousedown',{clientX:t.clientX,clientY:t.clientY}));},{passive:false});
+cv.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches[0];dragPos=evPos(t);},{passive:false});
+addEventListener('touchend',e=>{addEventListener('mouseup',()=>{},{once:true});if(dragging){const b=birds[birdIdx];dragging=false;let dx=SLING.x-b.x,dy=SLING.y-b.y;if(Math.hypot(dx,dy)<15){b.x=SLING.x;b.y=SLING.y;b.state='ready';return;}b.vx=dx*9.0;b.vy=dy*9.0;const sp=Math.hypot(b.vx,b.vy);if(sp>1700){b.vx*=1700/sp;b.vy*=1700/sp;}b.state='fly';phase='fly';sfx.shoot();syncHud();}});
+
+/* ---------- 碰撞 ---------- */
+function circleRect(cx,cy,cr,r){
+  const nx=Math.max(r.x,Math.min(cx,r.x+r.w)),ny=Math.max(r.y,Math.min(cy,r.y+r.h));
+  const dx=cx-nx,dy=cy-ny,d=Math.hypot(dx,dy);
+  return{d,overlap:cr-d,nx,ny};
+}
+function damageBlock(b,dmg){
+  if(!b.alive)return;b.hp-=dmg;burst(b.x+b.w/2,b.y+b.h/2,b.type==='wood'?'#b07a3f':b.type==='glass'?'#9be8ff':'#9aa0a6',8,220);sfx.wood();shake=Math.max(shake,3);
+  if(b.hp<=0){b.alive=false;addScore(b.type==='stone'?150:b.type==='wood'?100:80,b.x+b.w/2,b.y,'💥');burst(b.x+b.w/2,b.y+b.h/2,'#ffd166',22,380);}
+}
+function shockwave(x,y,rad,dmg,skip){
+  for(const k of blocks){if(!k.alive||k===skip)continue;
+    const cx=Math.max(k.x,Math.min(x,k.x+k.w)),cy=Math.max(k.y,Math.min(y,k.y+k.h));
+    const d=Math.hypot(x-cx,y-cy);if(d<rad)damageBlock(k,dmg*(1-d/rad));}
+  for(const p of pigs){if(!p.alive)continue;const d=Math.hypot(x-p.x,y-p.y);
+    if(d<rad)damagePig(p,dmg*(1-d/rad)+12);}
+}
+function damagePig(p,dmg){
+  if(!p.alive)return;p.hp-=dmg;
+  if(p.hp<=0){p.alive=false;addScore(500,p.x,p.y,'🐷💥 +500');burst(p.x,p.y,'#7ddf64',26,400);sfx.pig();shake=Math.max(shake,5);
+    if(pigs.every(q=>!q.alive))win();}else{burst(p.x,p.y,'#fff',6,200);sfx.hit();}
+}
+
+/* ---------- 物理更新 ---------- */
+function step(dt){
+  const b=birds[birdIdx];
+  if(dragging&&b&&b.state==='aim'){
+    let dx=dragPos.x-SLING.x,dy=dragPos.y-SLING.y;const d=Math.hypot(dx,dy),MAX=170;
+    if(d>MAX){dx*=MAX/d;dy*=MAX/d;}
+    b.x=SLING.x+dx;b.y=SLING.y+dy;
+  }
+  // 鳥
+  for(const o of birds){
+    if(o.state!=='fly')continue;
+    o.vy+=GRAV*dt;o.x+=o.vx*dt;o.y+=o.vy*dt;
+    o.trail.push({x:o.x,y:o.y});if(o.trail.length>22)o.trail.shift();
+    if(o.y+o.r>GROUND_Y){o.y=GROUND_Y-o.r;if(Math.abs(o.vy)>260){burst(o.x,GROUND_Y,'#c9b18a',8,200);sfx.hit();}o.vy*=-.35;o.vx*=.82;if(Math.abs(o.vy)<40)o.vy=0;}
+    if(o.x>W+60||o.x<-80||o.y>H+60){o.state='done';}
+    // vs 木塊
+    for(const k of blocks){if(!k.alive)continue;const c=circleRect(o.x,o.y,o.r,k);
+      if(c.overlap>0){const sp=Math.hypot(o.vx,o.vy);damageBlock(k,sp*.16+30);
+        if(sp>450)shockwave(o.x,o.y,160,sp*.08,k);
+        let nx=c.d>0.001?(o.x-c.nx)/c.d:0,ny=c.d>0.001?(o.y-c.ny)/c.d:-1;
+        const dot=o.vx*nx+o.vy*ny;o.vx-=1.7*dot*nx;o.vy-=1.7*dot*ny;o.vx*=.86;o.vy*=.86;
+        o.x+=nx*(c.overlap+1);o.y+=ny*(c.overlap+1);}}
+    // vs 豬
+    for(const p of pigs){if(!p.alive)continue;const dx=o.x-p.x,dy=o.y-p.y,d=Math.hypot(dx,dy);
+      if(d<o.r+p.r){const sp=Math.hypot(o.vx,o.vy);damagePig(p,sp*.16+35);
+        if(sp>450)shockwave(o.x,o.y,150,sp*.07,null);
+        const nx=dx/(d||1),ny=dy/(d||1),dot=o.vx*nx+o.vy*ny;
+        o.vx-=1.6*dot*nx;o.vy-=1.6*dot*ny;o.vx*=.86;o.vy*=.86;o.x=p.x+nx*(o.r+p.r+1);o.y=p.y+ny*(o.r+p.r+1);}}
+  }
+  // 豬物理（掉落/滾動）
+  for(const p of pigs){if(!p.alive)continue;
+    p.vy+=GRAV*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.99;
+    // 站在木塊上？
+    for(const k of blocks){if(!k.alive)continue;
+      if(p.x>k.x-5&&p.x<k.x+k.w+5&&p.y+p.r>k.y&&p.y+p.r<k.y+30&&p.vy>0){p.y=k.y-p.r;p.vy*=-.2;p.vx*=.8;}}
+    if(p.y+p.r>GROUND_Y){p.y=GROUND_Y-p.r;if(p.vy>500)damagePig(p,(p.vy-500)*.12);p.vy*=-.25;p.vx*=.85;if(Math.abs(p.vy)<40)p.vy=0;}
+  }
+  // 木塊掉落（支撐消失就塌）
+  for(const k of blocks){if(!k.alive)continue;
+    let supported=(k.y+k.h>=GROUND_Y-2);
+    if(!supported)for(const o of blocks){if(o===k||!o.alive)continue;
+      if(Math.abs((o.y)-(k.y+k.h))<14&&(k.x+k.w>o.x+4&&k.x<o.x+o.w-4)){supported=true;break;}}
+    if(!supported){k.vy+=GRAV*dt;k.y+=k.vy*dt;
+      if(k.y+k.h>GROUND_Y){k.y=GROUND_Y-k.h;if(k.vy>450){damageBlock(k,(k.vy-450)*.12);for(const p of pigs){if(p.alive&&p.x>k.x-20&&p.x<k.x+k.w+20&&Math.abs(p.y-(k.y-10))<50)damagePig(p,60);}}k.vy=0;}
+    }else k.vy=0;
+  }
+  // 粒子/飄字/雲
+  for(const q of particles){q.vy+=900*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.life-=dt;}
+  particles=particles.filter(q=>q.life>0);
+  for(const f of floaters){f.y-=46*dt;f.life-=dt;}
+  floaters=floaters.filter(f=>f.life>0);
+  for(const c of clouds){c.x+=c.v*dt;if(c.x>W+120)c.x=-120;}
+  if(shake>0)shake=Math.max(0,shake-14*dt);
+  // 判斷換鳥 / 失敗
+  if(phase==='fly'&&b&&(b.state==='done'||birdStopped(b))){
+    settleTimer+=dt;
+    if(settleTimer>.9){
+      settleTimer=0;
+      if(pigs.every(p=>!p.alive))return; // 已獲勝
+      birdIdx++;
+      if(birdIdx>=birds.length){lose();}
+      else{birds[birdIdx].x=SLING.x;birds[birdIdx].y=SLING.y;birds[birdIdx].state='ready';phase='aim';syncHud();}
+    }
+  } else settleTimer=0;
+}
+function birdStopped(b){return Math.hypot(b.vx,b.vy)<60&&(b.y+b.r>=GROUND_Y-2||b.settle);}
+
+/* ---------- 勝負 ---------- */
+function showPanel(title,stars,sub,nextTxt){
+  document.getElementById('c-title').textContent=title;
+  document.getElementById('stars').textContent=stars;
+  document.getElementById('c-sub').textContent=sub;
+  document.getElementById('c-go').textContent=nextTxt;
+  document.getElementById('panel').style.display='flex';
+}
+function win(){
+  phase='over';sfx.win();addScore(500+ (birds.length-birdIdx)*300,640,300,'🎉');
+  const left=birds.length-birdIdx-1;
+  const st=left>=2?'★★★':left===1?'★★☆':'★☆☆';
+  if(score>AB_BEST){AB_BEST=score;try{localStorage.setItem(AB_KEY,String(score));localStorage.setItem(AB_LV,String(levelIdx+1));}catch(e){}syncHud();}
+  setTimeout(()=>showPanel(`🎉 第 ${levelIdx+1} 關通過！`,st,`分數 ${score}｜剩餘小鳥 ${Math.max(0,left)} 隻｜歷史最佳 ${AB_BEST}`,'下一關 ▶'),900);
+}
+function lose(){
+  phase='over';sfx.lose();
+  setTimeout(()=>showPanel(`😢 挑戰失敗…`,'☆☆☆',`還剩 ${pigs.filter(p=>p.alive).length} 隻綠豬沒消滅，再試一次吧！`,'重玩本關 ↻'),900);
+}
+
+/* ---------- 繪圖 ---------- */
+function drawBird(o){
+  ctx.save();ctx.translate(o.x,o.y);
+  const ang=Math.atan2(o.vy||0,o.vx||0);
+  if(o.state==='fly')ctx.rotate(Math.max(-.4,Math.min(.4,ang*.3)));
+  // 尾巴
+  ctx.fillStyle='#222';[[ -o.r-.5,-6],[ -o.r-4,0],[ -o.r-.5,6]].forEach(([x,y])=>{ctx.fillRect(x-8,y-2,10,4);});
+  // 身體
+  const g=ctx.createRadialGradient(-6,-8,4,0,0,o.r+4);g.addColorStop(0,'#ff8a8a');g.addColorStop(.4,o.color);g.addColorStop(1,'#a11d2e');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,o.r,0,7);ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle='#7a1020';ctx.stroke();
+  // 肚皮
+  ctx.fillStyle='#ffe8d6';ctx.beginPath();ctx.ellipse(3,9,11,8,0,0,7);ctx.fill();
+  // 眉毛（憤怒）
+  ctx.strokeStyle='#222';ctx.lineWidth=4;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-13,-8);ctx.lineTo(-2,-4);ctx.moveTo(13,-8);ctx.lineTo(2,-4);ctx.stroke();
+  // 眼
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-6,-1,6.5,0,7);ctx.arc(7,-1,6.5,0,7);ctx.fill();
+  ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-4.5,-1,3,0,7);ctx.arc(8.5,-1,3,0,7);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-3.5,-2,1.2,0,7);ctx.arc(9.5,-2,1.2,0,7);ctx.fill();
+  // 嘴
+  ctx.fillStyle='#ffb703';ctx.beginPath();ctx.moveTo(-6,6);ctx.lineTo(7,6);ctx.lineTo(1,13);ctx.closePath();ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle='#9c5b00';ctx.stroke();
+  // 頭冠
+  ctx.fillStyle='#222';ctx.fillRect(-4,-o.r-7,3.5,9);ctx.fillRect(1,-o.r-9,3.5,11);
+  ctx.restore();
+}
+function drawPig(p){
+  if(!p.alive)return;
+  p.blink+=1/60;
+  ctx.save();ctx.translate(p.x,p.y);
+  const squash=Math.min(.15,Math.abs(p.vy)/4000);
+  ctx.scale(1+squash,1-squash);
+  const g=ctx.createRadialGradient(-6,-8,4,0,0,p.r+4);g.addColorStop(0,'#b8f59a');g.addColorStop(.5,'#6fce4e');g.addColorStop(1,'#3d8b2a');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,p.r,0,7);ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle='#2a6420';ctx.stroke();
+  // 耳朵
+  ctx.fillStyle='#6fce4e';ctx.strokeStyle='#2a6420';ctx.lineWidth=2;
+  [[-12,-p.r+4],[12,-p.r+4]].forEach(([x,y])=>{ctx.beginPath();ctx.moveTo(x-7,y+4);ctx.lineTo(x,y-8);ctx.lineTo(x+7,y+4);ctx.closePath();ctx.fill();ctx.stroke();});
+  // 鼻子
+  ctx.fillStyle='#a8e07f';ctx.beginPath();ctx.ellipse(0,5,10,7.5,0,0,7);ctx.fill();ctx.strokeStyle='#2a6420';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle='#2a6420';ctx.beginPath();ctx.arc(-4,5,2.2,0,7);ctx.arc(4,5,2.2,0,7);ctx.fill();
+  // 眼（眨眼）
+  const eh=(p.blink%3.4)<.12?1:7;
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(-9,-8,5.5,eh,0,0,7);ctx.ellipse(9,-8,5.5,eh,0,0,7);ctx.fill();
+  if(eh>2){ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-9,-8,2.4,0,7);ctx.arc(9,-8,2.4,0,7);ctx.fill();}
+  // 受傷表情
+  if(p.hp<50){ctx.strokeStyle='#1d4d16';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,12,6,.3,Math.PI-.3);ctx.stroke();}
+  ctx.restore();
+  if(p.hp<50){ctx.fillStyle='rgba(255,0,0,.55)';ctx.fillRect(p.x-20,p.y-p.r-12,40*(p.hp/50),5);}
+}
+function drawBlock(k){
+  if(!k.alive)return;
+  ctx.save();
+  let c1,c2;
+  if(k.type==='wood'){c1='#c98d4b';c2='#8a5a22';}else if(k.type==='glass'){c1='rgba(180,240,255,.85)';c2='#5fb9d6';}else{c1='#b9bec7';c2='#6b7280';}
+  ctx.fillStyle=c1;ctx.fillRect(k.x,k.y,k.w,k.h);
+  ctx.strokeStyle=c2;ctx.lineWidth=3;ctx.strokeRect(k.x,k.y,k.w,k.h);
+  ctx.strokeStyle='rgba(0,0,0,.18)';ctx.lineWidth=1.5;
+  if(k.w>k.h){for(let y=k.y+8;y<k.y+k.h;y+=9){ctx.beginPath();ctx.moveTo(k.x+3,y);ctx.lineTo(k.x+k.w-3,y);ctx.stroke();}}
+  else{for(let x=k.x+8;x<k.x+k.w;x+=9){ctx.beginPath();ctx.moveTo(x,k.y+3);ctx.lineTo(x,k.y+k.h-3);ctx.stroke();}}
+  const r=k.hp/k.maxHp;
+  if(r<1){ctx.fillStyle='rgba(0,0,0,.35)';if(r<.66)ctx.fillRect(k.x+4,k.y+k.h/2-2,k.w-8,4);if(r<.33){ctx.beginPath();ctx.moveTo(k.x+4,k.y+4);ctx.lineTo(k.x+k.w-4,k.y+k.h-4);ctx.moveTo(k.x+k.w-4,k.y+4);ctx.lineTo(k.x+4,k.y+k.h-4);ctx.strokeStyle='rgba(0,0,0,.5)';ctx.stroke();}}
+  ctx.restore();
+}
+function draw(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-.5)*shake*2,(Math.random()-.5)*shake*2);
+  // 天空
+  const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#4aa8e0');sky.addColorStop(.65,'#aee3ff');sky.addColorStop(.75,'#d8f4c8');sky.addColorStop(1,'#8fce6e');
+  ctx.fillStyle=sky;ctx.fillRect(-20,-20,W+40,H+40);
+  // 太陽
+  ctx.fillStyle='#fff59d';ctx.beginPath();ctx.arc(1120,110,46,0,7);ctx.fill();
+  ctx.fillStyle='rgba(255,245,157,.35)';ctx.beginPath();ctx.arc(1120,110,70,0,7);ctx.fill();
+  // 雲
+  ctx.fillStyle='rgba(255,255,255,.92)';
+  for(const c of clouds){ctx.beginPath();ctx.ellipse(c.x,c.y,52*c.s,20*c.s,0,0,7);ctx.ellipse(c.x-34*c.s,c.y+7*c.s,30*c.s,15*c.s,0,0,7);ctx.ellipse(c.x+36*c.s,c.y+7*c.s,32*c.s,15*c.s,0,0,7);ctx.fill();}
+  // 遠山
+  ctx.fillStyle='#7cc47f';ctx.beginPath();ctx.moveTo(280,GROUND_Y);ctx.quadraticCurveTo(480,420,700,GROUND_Y);ctx.fill();
+  ctx.fillStyle='#69b36d';ctx.beginPath();ctx.moveTo(650,GROUND_Y);ctx.quadraticCurveTo(880,460,1120,GROUND_Y);ctx.fill();
+  // 地面
+  ctx.fillStyle='#7cbd5b';ctx.fillRect(-20,GROUND_Y,W+40,H-GROUND_Y+20);
+  ctx.fillStyle='#5da244';ctx.fillRect(-20,GROUND_Y,W+40,10);
+  ctx.fillStyle='rgba(0,0,0,.08)';for(let x=0;x<W;x+=46)ctx.fillRect(x,GROUND_Y+22,20,6);
+  // 彈弓
+  const b=birds[birdIdx];
+  ctx.lineCap='round';
+  ctx.strokeStyle='#6b3f12';ctx.lineWidth=13;
+  ctx.beginPath();ctx.moveTo(SLING.x-14,GROUND_Y);ctx.lineTo(SLING.x-14,SLING.y+8);ctx.stroke();
+  ctx.strokeStyle='#8a5220';ctx.lineWidth=11;
+  ctx.beginPath();ctx.moveTo(SLING.x+12,GROUND_Y);ctx.lineTo(SLING.x+12,SLING.y+8);ctx.stroke();
+  // 皮筋（鳥後）
+  const aimBird=b&&b.state==='aim'?b:(b&&b.state==='ready'?{x:SLING.x,y:SLING.y}:null);
+  if(aimBird&&(b.state==='aim'||b.state==='ready')){
+    ctx.strokeStyle='#3a2410';ctx.lineWidth=6;
+    ctx.beginPath();ctx.moveTo(SLING.x-14,SLING.y+8);ctx.lineTo(aimBird.x,aimBird.y);ctx.moveTo(SLING.x+12,SLING.y+8);ctx.lineTo(aimBird.x,aimBird.y);ctx.stroke();
+  }
+  // 瞄準虛線
+  if(b&&b.state==='aim'){
+    let px=b.x,py=b.y,pvx=(SLING.x-b.x)*9.0,pvy=(SLING.y-b.y)*9.0;
+    const sp=Math.hypot(pvx,pvy);if(sp>1700){pvx*=1700/sp;pvy*=1700/sp;}
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    for(let i=0;i<26;i++){const tt=i*.09;const x=px+pvx*tt,y=py+pvy*tt+.5*GRAV*tt*tt;if(y>GROUND_Y)break;ctx.beginPath();ctx.arc(x,y,5-i*.12,0,7);ctx.fill();}
+  }
+  // 木塊 / 豬 / 鳥
+  blocks.forEach(drawBlock);
+  pigs.forEach(drawPig);
+  // 等待中的鳥排隊
+  birds.forEach((o,i)=>{
+    if(i<birdIdx||o.state==='fly'||o.state==='done')return;
+    if(i===birdIdx&&(o.state==='ready'||o.state==='aim'))return; // 主鳥稍後畫
+    o.x=70-(i-birdIdx)*0+ (i-birdIdx-1)*52;o.y=GROUND_Y-22;
+    drawBird({...o});
+  });
+  // 主鳥 + 飛行鳥
+  for(const o of birds){
+    if(o.state==='fly'){ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=3;ctx.beginPath();o.trail.forEach((p,i)=>{i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);});ctx.stroke();drawBird(o);}
+    else if(o===b&&(o.state==='ready'||o.state==='aim'))drawBird(o);
+  }
+  // 皮筋（鳥前）
+  if(aimBird&&(b.state==='aim')){ctx.strokeStyle='#5a3a16';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(SLING.x-14,SLING.y+8);ctx.lineTo(aimBird.x,aimBird.y);ctx.stroke();}
+  // 彈弓叉
+  ctx.strokeStyle='#5a3010';ctx.lineWidth=9;
+  ctx.beginPath();ctx.moveTo(SLING.x-14,SLING.y+30);ctx.lineTo(SLING.x-14,SLING.y+6);ctx.moveTo(SLING.x+12,SLING.y+30);ctx.lineTo(SLING.x+12,SLING.y+6);ctx.stroke();
+  // 粒子
+  for(const q of particles){ctx.globalAlpha=Math.max(0,q.life*1.6);ctx.fillStyle=q.color;ctx.beginPath();ctx.arc(q.x,q.y,q.r,0,7);ctx.fill();}
+  ctx.globalAlpha=1;
+  // 飄字
+  ctx.textAlign='center';ctx.font='bold 22px "Noto Sans TC",sans-serif';
+  for(const f of floaters){ctx.globalAlpha=Math.min(1,f.life);ctx.lineWidth=4;ctx.strokeStyle='rgba(0,0,0,.6)';ctx.strokeText(f.txt,f.x,f.y);ctx.fillStyle='#ffd166';ctx.fillText(f.txt,f.x,f.y);}
+  ctx.globalAlpha=1;
+  ctx.restore();
+}
+
+/* ---------- 主迴圈 ---------- */
+let last=performance.now();
+function loop(now){
+  let dt=(now-last)/1000;last=now;dt=Math.min(dt,.033);
+  if(phase!=='over')step(dt);
+  else{for(const q of particles){q.vy+=900*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.life-=dt;}particles=particles.filter(q=>q.life>0);}
+  draw();requestAnimationFrame(loop);
+}
+
+/* ---------- 按鈕 ---------- */
+document.getElementById('b-restart').onclick=()=>{score=0;loadLevel(levelIdx);};
+document.getElementById('b-next').onclick=()=>{loadLevel(levelIdx+1);};
+document.getElementById('b-prev').onclick=()=>{loadLevel(levelIdx-1);};
+document.getElementById('c-retry').onclick=()=>loadLevel(levelIdx);
+document.getElementById('c-go').onclick=()=>{
+  if(phase==='over'&&pigs.every(p=>!p.alive))loadLevel(levelIdx+1);
+  else loadLevel(levelIdx);
+};
+loadLevel(0);requestAnimationFrame(loop);
+</script>
+</body>
+</html>

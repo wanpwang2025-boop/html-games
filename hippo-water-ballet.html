@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>河馬水中芭蕾錦標賽 | Hippo Water Ballet Championship</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; background:#0b1622; font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; overflow:hidden; }
+  #app { width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; background:radial-gradient(1200px 700px at 50% 20%, #1b3a55 0%, #0b1622 70%); }
+  #stage { position:relative; aspect-ratio:16/9; width:min(100vw, 177.78vh); max-height:100vh; border-radius:14px; overflow:hidden; box-shadow:0 20px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08); background:#87ceeb; }
+  #scene-canvas { width:100%; height:100%; display:block; }
+  /* 左上 2D 浮層 */
+  #ui-panel { position:absolute; top:14px; left:14px; width:320px; padding:14px 15px 13px; background:rgba(8,20,32,.72); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.14); border-radius:12px; color:#fff; z-index:10; }
+  #ui-panel h1 { font-size:19px; font-weight:800; letter-spacing:.5px; line-height:1.25; }
+  #ui-panel h1 .en { display:block; font-size:11px; font-weight:600; letter-spacing:.4px; color:#8fd6ff; margin-top:2px; }
+  #phase-badge { display:inline-block; margin-top:9px; font-size:12.5px; font-weight:700; padding:4px 10px; border-radius:999px; background:#22b8e6; color:#04222e; }
+  #phase-badge.b { background:#ffd166; color:#4a3200; }
+  #phase-badge.c { background:#ff8fb3; color:#430f24; }
+  #phase-badge.d { background:#7CFFB2; color:#06351d; }
+  #timeline-wrap { margin-top:10px; }
+  #timeline-label { display:flex; justify-content:space-between; font-size:11.5px; color:#cfe9ff; margin-bottom:5px; }
+  #timeline-bar { height:8px; border-radius:999px; background:rgba(255,255,255,.15); overflow:hidden; }
+  #timeline-fill { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#38e1ff,#7CFFB2,#ffd166,#ff8fb3); transition:width .1s linear; }
+  #score-box { margin-top:10px; background:rgba(255,255,255,.08); border:1px dashed rgba(255,255,255,.25); border-radius:10px; padding:9px 11px; }
+  #score-title { font-size:13px; font-weight:700; color:#ffe9a8; }
+  #score-value { font-size:30px; font-weight:900; color:#fff; line-height:1.1; }
+  #score-value small { font-size:14px; font-weight:700; color:#cfe9ff; }
+  #score-comment { font-size:12.5px; color:#d8f3ff; margin-top:2px; min-height:18px; }
+  #btn-row { display:flex; gap:8px; margin-top:10px; }
+  button { flex:1; cursor:pointer; border:none; border-radius:9px; padding:9px 10px; font-size:14px; font-weight:800; font-family:inherit; }
+  #btn-replay { background:linear-gradient(180deg,#ffd166,#ff9f1c); color:#3a2200; box-shadow:0 4px 14px rgba(255,159,28,.4); }
+  #btn-replay:hover { filter:brightness(1.07); }
+  #btn-replay:active { transform:translateY(1px); }
+  #btn-camera { background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.2); }
+  #btn-camera:hover { background:rgba(255,255,255,.22); }
+  #hint { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); font-size:12px; color:rgba(255,255,255,.92); background:rgba(0,0,0,.45); padding:5px 14px; border-radius:999px; white-space:nowrap; z-index:10; }
+  #loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#0e2236; color:#bfe9ff; font-size:15px; font-weight:700; z-index:20; transition:opacity .4s; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="scene-canvas"></canvas>
+    <div id="ui-panel">
+      <h1>🦛 河馬水中芭蕾錦標賽<span class="en">Hippo Water Ballet Championship</span></h1>
+      <div id="phase-badge">🟦 準備中…</div>
+      <div id="timeline-wrap">
+        <div id="timeline-label"><span id="phase-name">階段：高台跳水</span><span id="time-label">0.0 秒</span></div>
+        <div id="timeline-bar"><div id="timeline-fill"></div></div>
+      </div>
+      <div id="score-box">
+        <div id="score-title">⭐ 評審分數</div>
+        <div id="score-value">-- <small>/ 10.0 分</small></div>
+        <div id="score-comment">表演結束後將揭曉分數…</div>
+      </div>
+      <div id="btn-row">
+        <button id="btn-replay">↻ 重播表演</button>
+        <button id="btn-camera">📷 重置視角</button>
+      </div>
+    </div>
+    <div id="hint">🖱️ 拖曳旋轉 • 滾輪縮放 • 右鍵平移 | 全自動循環演出</div>
+    <div id="loading">💧 泳池注水中…正在載入 3D 場景</div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================
+ * 泳池類別 Pool：池體 + 半透明水面 + 波紋 / 漣漪物理
+ * ============================================================ */
+class Pool {
+  constructor(scene) {
+    this.group = new THREE.Group();
+    this.POOL_W = 8; this.POOL_L = 12; this.WATER_Y = 0; this.FLOOR_Y = -2.6;
+    this.ripples = []; // {x,z,t0,amp}
+    this.time = 0;
+    this.buildStructure(scene);
+    this.buildWater();
+    scene.add(this.group);
+  }
+  buildStructure(scene) {
+    // 地面
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(60, 60),
+      new THREE.MeshStandardMaterial({ color: 0xd9c9a8, roughness: 1 })
+    );
+    ground.rotation.x = -Math.PI/2; ground.position.y = -2.62; ground.receiveShadow = true;
+    scene.add(ground);
+    // 池底
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1e6f9e, roughness:.6 });
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(this.POOL_W+1, .3, this.POOL_L+1), floorMat);
+    floor.position.y = this.FLOOR_Y; floor.receiveShadow = true; this.group.add(floor);
+    // 池壁（4面）
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x9fdcef, roughness:.35, metalness:.05 });
+    const edgeMat = new THREE.MeshStandardMaterial({ color: 0xf5f2e8, roughness:.8 });
+    const t = .5, h = 2.9;
+    const mkWall = (w,d,x,y,z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wallMat); m.position.set(x,y,z); m.receiveShadow=true; m.castShadow=true; this.group.add(m); };
+    mkWall(this.POOL_W+1, t, 0, -1.25,  this.POOL_L/2);
+    mkWall(this.POOL_W+1, t, 0, -1.25, -this.POOL_L/2);
+    mkWall(t, this.POOL_L+1,  this.POOL_W/2, -1.25, 0);
+    mkWall(t, this.POOL_L+1, -this.POOL_W/2, -1.25, 0);
+    // 池緣
+    const mkEdge = (w,d,x,z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,.18,d), edgeMat); m.position.set(x,.09,z); m.receiveShadow=true; m.castShadow=true; this.group.add(m); };
+    mkEdge(this.POOL_W+1.6,.7, 0,  this.POOL_L/2+.55); mkEdge(this.POOL_W+1.6,.7, 0, -this.POOL_L/2-.55);
+    mkEdge(.7,this.POOL_L+1.6,  this.POOL_W/2+.55,0); mkEdge(.7,this.POOL_L+1.6, -this.POOL_W/2-.55,0);
+    // 跳水板
+    const boardMat = new THREE.MeshStandardMaterial({ color:0x2b6cb0, roughness:.5 });
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.1,.14,3.2), boardMat);
+    board.position.set(0, 2.3, -6.6); board.castShadow = true; this.group.add(board);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(.18,.28,2.3,12), new THREE.MeshStandardMaterial({color:0x888888, roughness:.4, metalness:.6}));
+    base.position.set(0,1.1,-7.4); base.castShadow=true; this.group.add(base);
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.12,.02,0.4), new THREE.MeshStandardMaterial({color:0xffffff}));
+    stripe.position.set(0,2.38,-5.4); this.group.add(stripe);
+    this.boardTopY = 2.37;
+    // 漣漪環（重複使用）
+    this.rings = [];
+    const ringMat = () => new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0, side:THREE.DoubleSide, depthWrite:false });
+    for (let i=0;i<3;i++){
+      const r = new THREE.Mesh(new THREE.RingGeometry(.9,1.0,48), ringMat());
+      r.rotation.x = -Math.PI/2; r.position.y = .03; r.visible=false; this.group.add(r); this.rings.push({mesh:r, t0:-99, delay:i*.28});
+    }
+  }
+  buildWater() {
+    const geo = new THREE.PlaneGeometry(this.POOL_W, this.POOL_L, 46, 68);
+    geo.rotateX(-Math.PI/2);
+    this.waterGeo = geo;
+    this.basePos = geo.attributes.position.array.slice();
+    const mat = new THREE.MeshPhysicalMaterial({
+      color:0x2fb3e8, transparent:true, opacity:.68, roughness:.12, metalness:.05,
+      transmission:0, clearcoat:.6, clearcoatRoughness:.3, side:THREE.DoubleSide
+    });
+    this.water = new THREE.Mesh(geo, mat);
+    this.water.position.y = this.WATER_Y; this.water.receiveShadow = true;
+    this.group.add(this.water);
+  }
+  addRipple(x, z, amp=1) {
+    this.ripples.push({ x, z, t0:this.time, amp });
+    if (this.ripples.length > 6) this.ripples.shift();
+    this.rings.forEach(r => { r.t0 = this.time; });
+    this.lastRipple = { x, z };
+  }
+  waterHeight(x, z, t) {
+    let y = Math.sin(x*1.1 + t*1.6)*.045 + Math.cos(z*.9 + t*1.3)*.05 + Math.sin((x+z)*.7 + t*2.1)*.02;
+    for (const r of this.ripples) {
+      const dx=x-r.x, dz=z-r.z, d=Math.sqrt(dx*dx+dz*dz), age=t-r.t0;
+      if (age<0||age>4) continue;
+      y += r.amp * .38 * Math.sin(d*5.5 - age*7.0) * Math.exp(-d*.75) * Math.exp(-age*1.4);
+    }
+    return y;
+  }
+  update(dt, t) {
+    this.time = t;
+    const pos = this.waterGeo.attributes.position, base = this.basePos;
+    for (let i=0;i<pos.count;i++){
+      const bx=base[i*3], bz=base[i*3+2];
+      pos.setY(i, this.waterHeight(bx,bz,t));
+    }
+    pos.needsUpdate = true;
+    this.waterGeo.computeVertexNormals();
+    for (const r of this.rings) {
+      const age = t - r.t0 - r.delay;
+      if (age>0 && age<1.8) {
+        r.mesh.visible = true;
+        const rad = .4 + age*3.4;
+        r.mesh.scale.set(rad,rad,1);
+        r.mesh.position.x = (this.lastRipple?.x ?? 0);
+        r.mesh.position.z = (this.lastRipple?.z ?? 0);
+        r.mesh.material.opacity = Math.max(0, .75*(1-age/1.8));
+      } else r.mesh.visible = false;
+    }
+  }
+}
+
+/* ============================================================
+ * 河馬類別 Hippo：程序化建模 + 階層式關節（防不合理扭轉）
+ * ============================================================ */
+class Hippo {
+  constructor(scene) {
+    this.group = new THREE.Group();
+    this.joints = {};
+    const skin = new THREE.MeshStandardMaterial({ color:0x8d8296, roughness:.75 });
+    const bellyMat = new THREE.MeshStandardMaterial({ color:0xb3a8bd, roughness:.8 });
+    const darkMat = new THREE.MeshStandardMaterial({ color:0x4a4356, roughness:.7 });
+    // 身體
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1,32,24), skin);
+    body.scale.set(1.05,.88,1.45); body.castShadow=true; this.group.add(body);
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(.92,24,18), bellyMat);
+    belly.scale.set(.95,.75,1.3); belly.position.y=-.3; this.group.add(belly);
+    // 頭 + 吻部
+    const headG = new THREE.Group(); headG.position.set(0,.42,1.55); this.group.add(headG);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(.68,28,22), skin); head.castShadow=true; headG.add(head);
+    const snout = new THREE.Mesh(new THREE.SphereGeometry(.5,24,18), bellyMat);
+    snout.scale.set(1.05,.72,.8); snout.position.set(0,-.12,.5); headG.add(snout);
+    const nosGeo = new THREE.SphereGeometry(.07,12,10);
+    const n1 = new THREE.Mesh(nosGeo,darkMat); n1.position.set(-.18,.02,.92); headG.add(n1);
+    const n2 = n1.clone(); n2.position.x=.18; headG.add(n2);
+    // 眼睛
+    const eyeW = new THREE.SphereGeometry(.13,14,12), eyeWMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:.2});
+    const eyeB = new THREE.SphereGeometry(.06,10,8), eyeBMat = new THREE.MeshStandardMaterial({color:0x111111, roughness:.15});
+    [-1,1].forEach(s=>{ const e=new THREE.Mesh(eyeW,eyeWMat); e.position.set(s*.32,.38,.35); headG.add(e);
+      const p=new THREE.Mesh(eyeB,eyeBMat); p.position.set(s*.32,.42,.46); headG.add(p); });
+    // 耳朵
+    const earGeo = new THREE.SphereGeometry(.14,12,10);
+    [-1,1].forEach(s=>{ const ear=new THREE.Mesh(earGeo,skin); ear.scale.set(1,1.15,.55); ear.position.set(s*.38,.62,-.05); ear.castShadow=true; headG.add(ear);
+      const inner=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8), new THREE.MeshStandardMaterial({color:0xe8b4c8})); inner.position.set(s*.38,.63,0); headG.add(inner); });
+    // 微笑
+    const smile = new THREE.Mesh(new THREE.TorusGeometry(.22,.025,8,24,Math.PI), darkMat);
+    smile.position.set(0,-.32,.82); smile.rotation.x=Math.PI; headG.add(smile);
+    this.joints.head = headG;
+    // 四肢（階層關節：髖關節 → 大腿 → 膝關節 → 小腿+腳掌）
+    const legPos = [ [-.62,-.45,.85,'FL'], [.62,-.45,.85,'FR'], [-.62,-.45,-.85,'BL'], [.62,-.45,-.85,'BR'] ];
+    this.legs = {};
+    legPos.forEach(([x,y,z,name])=>{
+      const hip = new THREE.Group(); hip.position.set(x,y,z);
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(.2,.17,.62,14), skin);
+      upper.position.y=-.31; upper.castShadow=true; hip.add(upper);
+      const knee = new THREE.Group(); knee.position.y=-.62; hip.add(knee);
+      const lower = new THREE.Mesh(new THREE.CylinderGeometry(.16,.14,.5,14), skin);
+      lower.position.y=-.25; lower.castShadow=true; knee.add(lower);
+      const foot = new THREE.Mesh(new THREE.SphereGeometry(.2,14,12), darkMat);
+      foot.scale.set(1.1,.6,1.3); foot.position.set(0,-.52,.05); foot.castShadow=true; knee.add(foot);
+      this.group.add(hip);
+      this.legs[name] = { hip, knee };
+    });
+    // 尾巴
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(.06,.03,.5,8), skin);
+    tail.position.set(0,.25,-1.55); tail.rotation.x=1.1; this.group.add(tail);
+    scene.add(this.group);
+  }
+  // 物理約束：只允許 X 軸擺動，鎖死 Y/Z 防扭轉
+  setLegPose(name, hipX, kneeX) {
+    const L = this.legs[name]; if(!L) return;
+    hipX = THREE.MathUtils.clamp(hipX, -1.0, 0.9);
+    kneeX = THREE.MathUtils.clamp(kneeX, -0.15, 1.1);
+    L.hip.rotation.set(hipX, 0, 0);
+    L.knee.rotation.set(kneeX, 0, 0);
+  }
+  setAllLegs(fn) { for (const n in this.legs){ const [h,k]=fn(n); this.setLegPose(n,h,k);} }
+}
+
+/* ============================================================
+ * 水花粒子
+ * ============================================================ */
+class Splash {
+  constructor(scene, count=420) {
+    this.count=count; this.active=false; this.life=0;
+    const g = new THREE.BufferGeometry();
+    this.pos = new Float32Array(count*3); this.vel = new Float32Array(count*3);
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos,3));
+    this.mat = new THREE.PointsMaterial({ color:0xe8faff, size:.14, transparent:true, opacity:.95, depthWrite:false });
+    this.points = new THREE.Points(g, this.mat); this.points.frustumCulled=false; this.points.visible=false;
+    scene.add(this.points);
+  }
+  burst(x,y,z, power=1) {
+    for (let i=0;i<this.count;i++){
+      this.pos[i*3]=x+(Math.random()-.5)*.6; this.pos[i*3+1]=y; this.pos[i*3+2]=z+(Math.random()-.5)*.6;
+      const a=Math.random()*Math.PI*2, r=(0.5+Math.random()*2.6)*power;
+      this.vel[i*3]=Math.cos(a)*r; this.vel[i*3+1]=(3+Math.random()*5.5)*power; this.vel[i*3+2]=Math.sin(a)*r;
+    }
+    this.points.geometry.attributes.position.needsUpdate=true;
+    this.active=true; this.life=0; this.points.visible=true; this.mat.opacity=.95;
+  }
+  update(dt) {
+    if(!this.active) return;
+    this.life+=dt;
+    for (let i=0;i<this.count;i++){
+      this.vel[i*3+1]-=9.8*dt;
+      this.pos[i*3]+=this.vel[i*3]*dt; this.pos[i*3+1]+=this.vel[i*3+1]*dt; this.pos[i*3+2]+=this.vel[i*3+2]*dt;
+      if(this.pos[i*3+1]<-.1){ this.pos[i*3+1]=-.1; this.vel[i*3+1]*=-.25; this.vel[i*3]*=.7; this.vel[i*3+2]*=.7; }
+    }
+    this.points.geometry.attributes.position.needsUpdate=true;
+    this.mat.opacity=Math.max(0,.95-this.life*.7);
+    if(this.life>1.6){ this.active=false; this.points.visible=false; }
+  }
+}
+
+/* ============================================================
+ * 芭蕾動畫導演 BalletAnimator：跳水 → 水花 → 上浮 → 芭蕾
+ * ============================================================ */
+class BalletAnimator {
+  constructor(hippo, pool, splash, ui) {
+    this.hippo=hippo; this.pool=pool; this.splash=splash; this.ui=ui;
+    this.LOOP=14; this.T_DIVE=3.0; this.T_SPLASH=4.0; this.T_BALLET=12.0;
+    this.t=0; this.splashed=false; this.scored=false;
+    this.startPos=new THREE.Vector3(0,3.1,-6.6);
+    this.entryPos=new THREE.Vector3(0,0,-1.2);
+    this.deepPos=new THREE.Vector3(0,-1.7,-0.4);
+  }
+  reset() {
+    this.t=0; this.splashed=false; this.scored=false;
+    this.pool.ripples.length=0;
+    this.ui.scoreValue.innerHTML='-- <small>/ 10.0 分</small>';
+    this.ui.scoreComment.textContent='表演結束後將揭曉分數…';
+  }
+  update(dt) {
+    this.t+=dt;
+    if(this.t>=this.LOOP) this.reset();
+    const t=this.t, H=this.hippo.group;
+    if (t < this.T_DIVE) this.phaseDive(t,H);
+    else if (t < this.T_SPLASH) this.phaseSplash(t,H);
+    else if (t < this.T_BALLET) this.phaseBallet(t,H);
+    else this.phaseFinale(t,H);
+    this.updateUI(t);
+  }
+  // A：高台跳水（0–3秒）：重力 + 初速拋物線 + 前空翻
+  phaseDive(t,H) {
+    const k = t/this.T_DIVE; // 0..1
+    // 0–0.8s 蹲伏蓄力
+    if (t < 0.8) {
+      const c = Math.sin((t/0.8)*Math.PI)*.18;
+      H.position.copy(this.startPos); H.position.y-=c;
+      H.rotation.set(0,0,0);
+      this.hippo.setAllLegs(()=>[-.45,.7]);
+      this.hippo.joints.head.rotation.x=-.15;
+    } else {
+      const p=(t-0.8)/2.2; // 拋物線
+      const x0=this.startPos.x, y0=this.startPos.y, z0=this.startPos.z;
+      const vx=0, vy=2.6, vz=4.4, g=6.2;
+      const tt=p*2.2;
+      H.position.set(x0+vx*tt, y0+vy*tt-.5*g*tt*tt*.55, z0+vz*tt);
+      if(H.position.y<.15) H.position.y=.15;
+      H.rotation.x = -p*Math.PI*2*1.0; // 前空翻一圈
+      H.rotation.y = 0; H.rotation.z=0;
+      const kick=Math.sin(p*Math.PI*6)*.5;
+      this.hippo.setLegPose('FL',-.6+kick,.8); this.hippo.setLegPose('FR',-.6-kick,.8);
+      this.hippo.setLegPose('BL',.4-kick,.5);  this.hippo.setLegPose('BR',.4+kick,.5);
+      this.hippo.joints.head.rotation.x=.3;
+    }
+  }
+  // B：水花與位移（3–4秒）：阻尼減速 + 粒子 + 漣漪
+  phaseSplash(t,H) {
+    if(!this.splashed){
+      this.splashed=true;
+      this.splash.burst(this.entryPos.x,.1,this.entryPos.z,1.15);
+      this.pool.addRipple(this.entryPos.x,this.entryPos.z,1.0);
+    }
+    const p=(t-this.T_DIVE)/(this.T_SPLASH-this.T_DIVE);
+    // 水中阻尼：速度指數衰減下沉
+    const damp = Math.exp(-2.2*p);
+    H.position.lerpVectors(this.entryPos,this.deepPos, 1-Math.pow(1-p,2));
+    H.position.y += Math.sin(p*Math.PI)*.1;
+    H.rotation.x += ( -0.2 - H.rotation.x)*Math.min(1,dtFix()*3); // 回正
+    H.rotation.y += dtFix()*1.2*damp;
+    this.hippo.setAllLegs(()=>[-.2+.2*Math.sin(p*9),.5]);
+    this.hippo.joints.head.rotation.x=.1;
+  }
+  // C：上浮與水上芭蕾（4–12秒）：浮力上升 + Y軸旋轉 + 規律踢腿 + 波浪起伏
+  phaseBallet(t,H) {
+    const p=(t-this.T_SPLASH)/(this.T_BALLET-this.T_SPLASH); // 0..1
+    // 浮力：4–5.5s 上浮
+    const rise = THREE.MathUtils.smoothstep(p,0,.19);
+    const floatY=.42;
+    const wob = Math.sin((t-this.T_SPLASH)*2.2)*.13 + this.pool.waterHeight(H.position.x,H.position.z,this.pool.time)*.55;
+    H.position.y = THREE.MathUtils.lerp(this.deepPos.y,floatY,rise)+wob*rise;
+    H.position.x = Math.sin((t-this.T_SPLASH)*.55)*.9;
+    H.position.z = -0.4 + Math.cos((t-this.T_SPLASH)*.42)*1.1;
+    // 芭蕾旋轉：Y軸協調轉體（共約 2 圈）
+    H.rotation.y = (t-this.T_SPLASH)*1.55;
+    H.rotation.x = Math.sin((t-this.T_SPLASH)*1.8)*.12;  // 前後搖曳
+    H.rotation.z = Math.sin((t-this.T_SPLASH)*1.4)*.14;  // 左右搖曳
+    // 同步游泳式踢腿（前後腿交替）
+    const beat=(t-this.T_SPLASH)*4.4;
+    this.hippo.setLegPose('FL', Math.sin(beat)*.75, .45+Math.max(0,Math.sin(beat+1))*.5);
+    this.hippo.setLegPose('FR', Math.sin(beat+Math.PI)*.75, .45+Math.max(0,Math.sin(beat+Math.PI+1))*.5);
+    this.hippo.setLegPose('BL', Math.sin(beat+Math.PI)*.65, .4+Math.max(0,Math.sin(beat+2))*.5);
+    this.hippo.setLegPose('BR', Math.sin(beat)*.65, .4+Math.max(0,Math.sin(beat+Math.PI+2))*.5);
+    this.hippo.joints.head.rotation.x = -.25+Math.sin(beat*.5)*.15;
+    this.hippo.joints.head.rotation.y = Math.sin((t-this.T_SPLASH)*.9)*.3;
+    // 踢水小漣漪
+    if(Math.floor(t*2)!==Math.floor((t-dtFix())*2)) this.pool.addRipple(H.position.x,H.position.z,.22);
+  }
+  // 尾聲（12–14秒）：慢速謝幕旋轉 + 揭曉分數
+  phaseFinale(t,H) {
+    if(!this.scored){
+      this.scored=true;
+      const s=(8.5+Math.random()*1.5).toFixed(1);
+      const comments=['🌊 完美入水，幾乎零水花！','🦛 空中姿態優雅，踢腿同步出色！','👏 評審一致起立鼓掌！','💧 波浪配合天衣無縫！','🏆 冠軍級的水上芭蕾演出！'];
+      let best=null;try{best=parseFloat(localStorage.getItem('hg-hippo-best')||'0');}catch(e){}
+      let tag='';
+      if(!best||parseFloat(s)>best){try{localStorage.setItem('hg-hippo-best',s);}catch(e){}tag=' 🏆新紀錄！';}
+      else{tag=`（歷史最佳 ${best.toFixed(1)}）`;}
+      this.ui.scoreValue.innerHTML=`${s} <small>/ 10.0 分</small>`;
+      this.ui.scoreComment.textContent=comments[Math.floor(Math.random()*comments.length)]+tag;
+    }
+    H.position.y=.42+Math.sin(t*2.2)*.1;
+    H.rotation.y+=dtFix()*.9;
+    H.rotation.x*=.95; H.rotation.z=Math.sin(t*1.5)*.1;
+    this.hippo.setAllLegs((n)=>[(n==='FL'||n==='BR'? .9:-.2), .25]); // 謝幕舉腿
+    this.hippo.joints.head.rotation.x=-.35;
+  }
+  updateUI(t) {
+    const badge=this.ui.badge, pname=this.ui.phaseName, fill=this.ui.fill, tl=this.ui.time;
+    tl.textContent=t.toFixed(1)+' 秒';
+    fill.style.width=(t/this.LOOP*100)+'%';
+    if(t<this.T_DIVE){ badge.textContent='🟦 第一幕：高台跳水'; badge.className=''; pname.textContent='階段：高台跳水（施力＋重力）'; }
+    else if(t<this.T_SPLASH){ badge.textContent='🟨 第二幕：水花與位移'; badge.className='b'; pname.textContent='階段：水花・漣漪・水中阻尼'; }
+    else if(t<this.T_BALLET){ badge.textContent='🩷 第三幕：上浮・水中芭蕾'; badge.className='c'; pname.textContent='階段：浮力上浮・旋轉・踢腿'; }
+    else { badge.textContent='🟩 謝幕：評審評分'; badge.className='d'; pname.textContent='階段：謝幕・公布分數'; }
+  }
+}
+let _lastDt=1/60; function dtFix(){ return _lastDt; }
+
+/* ============================================================
+ * 主程式
+ * ============================================================ */
+const canvas=document.getElementById('scene-canvas');
+const renderer=new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.05;
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x9fd4ef);
+scene.fog=new THREE.Fog(0x9fd4ef,22,46);
+
+const camera=new THREE.PerspectiveCamera(45,16/9,.1,100);
+const CAM_HOME=new THREE.Vector3(8.2,6.2,10.5);
+camera.position.copy(CAM_HOME);
+
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,.4,-.5); controls.enableDamping=true; controls.dampingFactor=.06;
+controls.minDistance=4; controls.maxDistance=26; controls.maxPolarAngle=Math.PI*.495;
+
+// 燈光：柔和環境 + 陰影
+scene.add(new THREE.HemisphereLight(0xcfeaff,0x3a7ca5,.85));
+scene.add(new THREE.AmbientLight(0xffffff,.25));
+const sun=new THREE.DirectionalLight(0xfff6e8,1.6);
+sun.position.set(7,12,5); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-10; sun.shadow.camera.right=10; sun.shadow.camera.top=10; sun.shadow.camera.bottom=-10;
+sun.shadow.camera.far=30; sun.shadow.bias=-.0004;
+scene.add(sun);
+const rim=new THREE.DirectionalLight(0x9fd8ff,.5); rim.position.set(-6,4,-8); scene.add(rim);
+
+// 世界物件
+const pool=new Pool(scene);
+const hippo=new Hippo(scene);
+const splash=new Splash(scene);
+const ui={ badge:document.getElementById('phase-badge'), phaseName:document.getElementById('phase-name'),
+  fill:document.getElementById('timeline-fill'), time:document.getElementById('time-label'),
+  scoreValue:document.getElementById('score-value'), scoreComment:document.getElementById('score-comment') };
+const director=new BalletAnimator(hippo,pool,splash,ui);
+
+document.getElementById('btn-replay').addEventListener('click',()=>director.reset());
+document.getElementById('btn-camera').addEventListener('click',()=>{ camera.position.copy(CAM_HOME); controls.target.set(0,.4,-.5); });
+
+function resize(){
+  const stage=document.getElementById('stage');
+  const w=stage.clientWidth,h=stage.clientHeight;
+  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+addEventListener('resize',resize); resize();
+
+const clock=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.05); _lastDt=dt;
+  const t=clock.elapsedTime;
+  pool.update(dt,t);
+  director.update(dt);
+  splash.update(dt);
+  controls.update();
+  renderer.render(scene,camera);
+}
+animate();
+setTimeout(()=>{ const l=document.getElementById('loading'); l.style.opacity='0'; setTimeout(()=>l.remove(),450); },600);
+</script>
+</body>
+</html>
