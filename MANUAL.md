@@ -219,7 +219,7 @@ reset();requestAnimationFrame(loop);
 7. **全球榜**：見第 7 章。
 8. 觸控：全屏浮動搖桿（手指落點即原點，半徑 70）。
 
-調參速查：`P.speed=265` 移速、`iv` 生成間隔（`.9→.22`）、`xpNext=8+lvl*4.5` 升級曲線、`magnet=110` 拾取範圍。
+調參速查：`P.speed=300` 移速、`iv` 生成間隔（`.9→.22`）、`xpNext=8+lvl*4.5` 升級曲線、`magnet=110` 拾取範圍。
 
 ### 4.4 🦛 hippo-water-ballet.html（約 474 行，展示型）
 

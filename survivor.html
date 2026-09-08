@@ -171,7 +171,7 @@ const BG=makeSprite(1600,(g,sz)=>{
 /* ---------- 狀態 ---------- */
 let P,foes,gems,projs,parts,floats,elapsed,spawnT,kills,bossN,gameOver,paused,shake,started;
 function reset(){
-  P={x:WW/2,y:WH/2,hp:100,maxHp:100,speed:265,lvl:1,xp:0,xpNext:8,magnet:110,shield:0,inv:2,r:18,trail:[],
+  P={x:WW/2,y:WH/2,hp:100,maxHp:100,speed:300,lvl:1,xp:0,xpNext:8,magnet:110,shield:0,inv:2,r:18,trail:[],
      knife:{dmg:12,rate:1.6,count:1,cd:0,spd:640},orbs:{n:1,dmg:10,radius:90,rot:0,spd:2.6}};
   foes=[];gems=[];projs=[];parts=[];floats=[];
   elapsed=0;spawnT=0;kills=0;bossN=0;gameOver=false;paused=false;shake=0;
