@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>小朋友下樓梯 | Fall Down</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#0b1622;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden}
+  #app{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 700px at 50% 15%,#1b3a55 0%,#0b1622 70%)}
+  #stage{position:relative;aspect-ratio:16/9;width:min(100vw,177.78vh);max-height:100vh;border-radius:14px;overflow:hidden;box-shadow:0 20px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}
+  canvas{width:100%;height:100%;display:block;touch-action:none;cursor:pointer}
+  #hud{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:5;pointer-events:none}
+  .pill{background:rgba(8,20,32,.75);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800;white-space:nowrap}
+  .pill b{color:#ffd166}
+  #btns{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:6}
+  button{cursor:pointer;border:none;border-radius:10px;padding:8px 14px;font-size:14px;font-weight:800;font-family:inherit}
+  .btn-warning{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200}
+  .btn-ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)}
+  button:hover{filter:brightness(1.1)} button:active{transform:translateY(1px)}
+  #panel{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:10}
+  #card{background:linear-gradient(180deg,#fffdf4,#ffeec2);border-radius:18px;padding:30px 44px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);max-width:82%}
+  #card h2{font-size:34px;margin-bottom:6px}
+  #card p{font-size:16px;color:#5b4a00;margin:4px 0;line-height:1.7}
+  #card .row{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+  #tip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:12.5px;color:#fff;background:rgba(0,0,0,.5);padding:5px 16px;border-radius:999px;z-index:5;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="hud">
+    <div class="pill">🏃 下 <b id="h-score">0</b> 層</div>
+    <div class="pill">🩸 血量 <b id="h-life">12</b></div>
+    <div class="pill">🏆 最佳 <b id="h-best">—</b></div>
+  </div>
+  <div id="btns">
+    <button class="btn-ghost" id="b-pause">⏸ 暫停</button>
+    <button class="btn-warning" id="b-restart">↻ 重來</button>
+  </div>
+  <div id="panel"><div id="card">
+    <h2 id="c-title">🏃 小朋友下樓梯</h2>
+    <p id="c-sub"></p>
+    <div class="row">
+      <button class="btn-ghost" style="color:#333;border-color:#999" id="c-retry">↻ 再來一局</button>
+      <button class="btn-warning" id="c-go">開始挑戰 ▶</button>
+    </div>
+  </div></div>
+  <div id="tip">⬅ ➡ 左右移動・手機點左右半屏・往下跳別被頂到釘子，也別摔出底部！</div>
+</div></div>
+<script>
+"use strict";
+const W=1280,H=720;
+/* 豎井（仿 NS-Shaft 直式玩法，置中） */
+const SX=470,SW=340,CEIL=86;
+const GRAV=2400,MOVE_V=340,CONV_V=95;
+const GAP=96,FLOOR_W=112,FLOOR_H=14;
+const MAX_LIFE=12;
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+
+/* ---------- 音效（WebAudio 合成） ---------- */
+let AC=null;
+function beep(f,d=.12,type='triangle',v=.08,slide=0){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,AC.currentTime);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,f+slide),AC.currentTime+d);g.gain.value=v;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+const sfx={
+  land:()=>beep(180,.07,'triangle',.09),
+  hurt:()=>{beep(220,.18,'sawtooth',.1,-140);},
+  spring:()=>{beep(300,.16,'square',.07,500);},
+  mile:()=>{[660,880,1100].forEach((f,i)=>setTimeout(()=>beep(f,.12,'triangle',.09),i*90));},
+  die:()=>{[500,350,220,140].forEach((f,i)=>setTimeout(()=>beep(f,.2,'sawtooth',.09),i*140));},
+  click:()=>beep(600,.06,'sine',.07),
+};
+
+/* ---------- 存檔 ---------- */
+const KEY='hg-fall-best';
+let BEST=0;try{BEST=+(localStorage.getItem(KEY)||0);}catch(e){}
+function saveBest(v){if(v>BEST){BEST=v;try{localStorage.setItem(KEY,String(v));}catch(e){}}}
+
+/* ---------- 狀態 ---------- */
+let floors=[],hero=null,score=0,seq=0,over=false,started=false,paused=false;
+let shake=0,lastMile=0,floats=[],parts=[];
+let dirL=false,dirR=false,touchDir=0;
+function speed(){return Math.min(320,95*(1+score/55));}
+function spikeP(){return Math.min(.22,.10+score*.0009);}
+
+function mkFloor(y,center){
+  seq++;
+  const x=center?(SX+(SW-FLOOR_W)/2):(SX+6+Math.random()*(SW-12-FLOOR_W));
+  const r=Math.random(),sp=spikeP();
+  let type='normal';
+  if(!center){
+    if(r<sp)type='spike';
+    else if(r<sp+.10)type='fake';
+    else if(r<sp+.20)type='convL';
+    else if(r<sp+.30)type='convR';
+    else if(r<sp+.38)type='spring';
+  }
+  return {x,y,w:FLOOR_W,type,seq,t:0,gone:false,ph:Math.random()*6.28};
+}
+function reset(){
+  floors=[];seq=0;score=0;lastMile=0;floats=[];parts=[];
+  shake=0;over=false;started=true;paused=false;
+  let y=H+30;
+  while(y>CEIL-120){floors.push(mkFloor(y,y>H-40));y-=GAP;}
+  // 選最接近 H-200 的地板當出生點
+  let f0=floors[0];
+  for(const f of floors){if(Math.abs(f.y-(H-200))<Math.abs(f0.y-(H-200)))f0=f;}
+  hero={x:f0.x+(FLOOR_W-36)/2,y:f0.y-44,w:36,h:44,vx:0,vy:0,face:1,on:f0,landT:0,inv:0,life:MAX_LIFE};
+  $('panel').style.display='none';$('b-pause').textContent='⏸ 暫停';syncHud();
+}
+function syncHud(){
+  $('h-score').textContent=score;
+  $('h-life').textContent=Math.max(0,hero?hero.life:MAX_LIFE);
+  $('h-best').textContent=BEST>0?('B'+BEST):'—';
+}
+function hurt(n){
+  if(hero.inv>0||over)return;
+  hero.life-=n;hero.inv=1.0;shake=.38;sfx.hurt();
+  burst(hero.x+hero.w/2,hero.y+10,'#ffd166',14);
+  if(hero.life<=0){hero.life=0;die('血量歸零，被釘子制裁了！');}
+  syncHud();
+}
+function die(msg){
+  over=true;saveBest(score);syncHud();sfx.die();
+  shake=.5;
+  $('c-title').textContent='💀 遊戲結束';
+  $('c-sub').innerHTML='下到 <b>B'+score+'</b> 層・'+msg+'<br>歷史最佳：'+(BEST?('B'+BEST):'—');
+  $('c-retry').textContent='↻ 再來一局';$('c-go').textContent='挑戰下一局 ▶';
+  $('panel').style.display='flex';
+}
+function burst(x,y,col,n){
+  for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*420,vy:-Math.random()*420-60,life:.5+Math.random()*.4,col,r:2+Math.random()*3});
+}
+function floatText(txt,col){floats.push({txt,col:col||'#ffd166',t:0});if(floats.length>4)floats.shift();}
+
+/* ---------- 更新 ---------- */
+function update(dt){
+  const sp=speed();
+  // 地板上移＋生成＋回收
+  for(const f of floors){
+    f.y-=sp*dt;f.ph+=dt*4;
+    if(f.type==='spring'&&f.busy!=null&&hero.on===f){
+      f.busy+=dt;
+      if(f.busy>.14){ // 彈射！
+        hero.vy=-1080;hero.on=null;f.busy=null;sfx.spring();
+        burst(hero.x+hero.w/2,hero.y+hero.h,'#7CFFB2',10);
+      }
+    }
+    if(f.type==='fake'&&f.t>0&&!f.gone){
+      f.t+=dt;
+      if(f.t>.38){f.gone=true;if(hero.on===f)hero.on=null;}
+    }
+  }
+  let low=floors[0]; // index 0 永遠是最低（y 最大）的一塊
+  while(low.y<H+40){low=mkFloor(low.y+GAP,false);floors.unshift(low);}
+  floors=floors.filter(f=>f.y>CEIL-140);
+  if(hero.on&&!floors.includes(hero.on))hero.on=null; // 站的地板捲出去了就放手
+
+  const h=hero;
+  // 水平
+  let mv=0;
+  if(dirL)mv-=1;if(dirR)mv+=1;mv+=touchDir;
+  mv=Math.max(-1,Math.min(1,mv));
+  h.x+=mv*MOVE_V*dt;
+  if(mv!==0)h.face=mv>0?1:-1;
+  if(h.on&&h.on.type==='convL')h.x-=CONV_V*dt;
+  if(h.on&&h.on.type==='convR')h.x+=CONV_V*dt;
+  h.x=Math.max(SX+2,Math.min(SX+SW-2-h.w,h.x));
+
+  // 站在地板上？
+  if(h.on){
+    const f=h.on;
+    if(f.gone||h.x+h.w<f.x+5||h.x>f.x+f.w-5){h.on=null;} // 走出去或地板消失
+    else{
+      h.y=f.y-h.h;
+      if(f.type==='convL'||f.type==='convR'){/* 隨帶走，已在上面處理 */}
+    }
+  }
+  // 下落物理
+  if(!h.on){
+    const prevB=h.y+h.h;
+    h.vy+=GRAV*dt;
+    if(h.vy>1500)h.vy=1500;
+    h.y+=h.vy*dt;
+    // 落地判定
+    for(const f of floors){
+      if(f.gone||f.y<CEIL-60)continue;
+      const top=f.y;
+      if(h.vy>=0&&prevB<=top+2&&h.y+h.h>=top&&h.x+h.w>f.x+4&&h.x<f.x+f.w-4){
+        h.y=top-h.h;
+        if(f.type==='spike'){
+          h.on=f;h.vy=0;
+          hurt(4);
+        }else if(f.type==='spring'){
+          h.on=f;h.vy=0;f.busy=0;
+          if(f.seq>score){score=f.seq;syncHud();}
+        }else{
+          const hard=h.vy>620;
+          h.on=f;h.vy=0;h.landT=.16;
+          if(f.type==='fake'&&f.t===0)f.t=0.0001;
+          if(f.seq>score){
+            score=f.seq;syncHud();
+            if(score%10===0&&score!==lastMile){lastMile=score;sfx.mile();floatText('B'+score+'！');}
+          }else syncHud();
+          h.life=Math.min(MAX_LIFE,h.life+1);
+          sfx.land();
+          if(hard)burst(h.x+h.w/2,h.y+h.h,'#ffffff',6);
+          syncHud();
+        }
+        break;
+      }
+    }
+  }else{h.vy=0;}
+  h.landT=Math.max(0,h.landT-dt);
+  h.inv=Math.max(0,h.inv-dt);
+
+  // 撞頂釘
+  if(h.y<CEIL+2){
+    h.y=CEIL+2;h.vy=Math.max(h.vy,260);
+    if(h.on){h.on=null;}
+    hurt(3);
+  }
+  // 摔出底部
+  if(h.y>H+40){die('直接摔出底部啦！');return;}
+  // 粒子＋浮字
+  for(const p of parts){p.vy+=1500*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;}
+  parts=parts.filter(p=>p.life>0);
+  for(const f of floats)f.t+=dt;
+  floats=floats.filter(f=>f.t<1.2);
+  shake=Math.max(0,shake-dt*1.4);
+}
+
+/* ---------- 繪圖 ---------- */
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawFloor(f){
+  const x=f.x,y=f.y,w=f.w;
+  if(f.type==='fake'&&f.gone)return;
+  ctx.save();
+  if(f.type==='fake'){
+    const blink=f.t>0?(Math.sin(f.t*40)>0?1:.35):1;
+    ctx.globalAlpha=.55*blink+.25;
+    ctx.fillStyle='#9aa7b8';rr(x,y,w,FLOOR_H,5);ctx.fill();
+    ctx.globalAlpha=1;ctx.fillStyle='#5c677d';ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('?',x+w/2,y+11);
+  }else if(f.type==='normal'){
+    const g=ctx.createLinearGradient(x,y,x,y+FLOOR_H);
+    g.addColorStop(0,'#c98f4e');g.addColorStop(1,'#8a5a24');
+    ctx.fillStyle=g;rr(x,y,w,FLOOR_H,5);ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.3)';ctx.lineWidth=1;
+    for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(x+6,y+i*3.5);ctx.lineTo(x+w-6,y+i*3.5);ctx.stroke();}
+  }else if(f.type==='spike'){
+    ctx.fillStyle='#5c677d';rr(x,y+8,w,6,3);ctx.fill();
+    ctx.fillStyle='#f1fa8c';
+    ctx.beginPath();
+    const n=Math.floor(w/14);
+    for(let i=0;i<n;i++){const bx=x+4+i*14;ctx.moveTo(bx,y+9);ctx.lineTo(bx+7,y-8);ctx.lineTo(bx+14,y+9);}
+    ctx.fill();
+  }else if(f.type==='spring'){
+    ctx.fillStyle='#3fa7d6';rr(x,y+8,w,6,3);ctx.fill();
+    const comp=f.busy!=null?(1-f.busy/.14):0; // 0→1 壓縮
+    const hh=6+10*(1-comp*.7);
+    ctx.strokeStyle='#e8faff';ctx.lineWidth=3;ctx.beginPath();
+    const seg=4;
+    for(let i=0;i<=seg;i++){const px=x+14+(w-28)*i/seg,py=y+8-hh*Math.sin(Math.PI*i/seg)*(i%2?1:.4)- (i===0||i===seg?hh:0)*0;ctx[i?'lineTo':'moveTo'](px,py);}
+    ctx.stroke();
+    ctx.fillStyle='#7CFFB2';rr(x+8,y+8-hh-4,w-16,5,2);ctx.fill();
+  }else{ // convL / convR
+    ctx.fillStyle='#2b2d5c';rr(x,y,w,FLOOR_H,7);ctx.fill();
+    ctx.strokeStyle='#8fd6ff';ctx.lineWidth=2;
+    ctx.fillStyle='#8fd6ff';ctx.textAlign='center';ctx.font='bold 11px sans-serif';
+    const off=(f.ph*30)%24;
+    for(let ax=x+12-24+off;ax<x+w-8;ax+=24){
+      ctx.fillText(f.type==='convR'?'▶':'◀',ax,y+11);
+    }
+  }
+  ctx.restore();
+}
+function drawHero(){
+  const h=hero;
+  if(h.inv>0&&Math.floor(h.inv*12)%2===0)return; // 受傷閃爍
+  const stretch=Math.max(-.25,Math.min(.35,h.vy/2400));
+  const squash=h.landT>0?-.28*(h.landT/.16):0;
+  const sy=1+stretch+squash,sx=1-(stretch+squash)*.6;
+  const cx=h.x+h.w/2,by=h.y+h.h;
+  ctx.save();
+  ctx.translate(cx,by);ctx.scale(sx,sy);ctx.translate(-h.w/2,-h.h);
+  // 身體（小外套）
+  ctx.fillStyle='#e63946';rr(2,14,h.w-4,h.h-14,9);ctx.fill();
+  ctx.fillStyle='#f4a261';rr(2,14,h.w-4,8,4);ctx.fill();
+  // 頭
+  ctx.fillStyle='#ffd9b3';ctx.beginPath();ctx.arc(h.w/2,11,11,0,Math.PI*2);ctx.fill();
+  // 頭髮
+  ctx.fillStyle='#3a2e2e';ctx.beginPath();ctx.arc(h.w/2,8,11,Math.PI,Math.PI*2);ctx.fill();
+  ctx.fillRect(h.w/2-11,6,5,5);ctx.fillRect(h.w/2+6,6,5,5);
+  // 眼睛（看方向）
+  ctx.fillStyle='#222';
+  const ex=h.face*3;
+  ctx.beginPath();ctx.arc(h.w/2-4+ex,11,2.1,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(h.w/2+4+ex,11,2.1,0,Math.PI*2);ctx.fill();
+  // 嘴（掉得越快嘴越大＝慘叫）
+  ctx.fillStyle='#7a2e2e';
+  const mo=Math.min(5,2+Math.max(0,h.vy)/500);
+  ctx.beginPath();ctx.ellipse(h.w/2,17,2.6,mo,0,0,Math.PI*2);ctx.fill();
+  // 手
+  ctx.fillStyle='#ffd9b3';
+  ctx.beginPath();ctx.arc(-1,26,4.5,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(h.w+1,26,4.5,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+function draw(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-.5)*shake*26,(Math.random()-.5)*shake*26);
+  // 背景
+  ctx.fillStyle='#141428';ctx.fillRect(-30,-30,W+60,H+60);
+  ctx.fillStyle='#0b1622';ctx.fillRect(0,0,400,H);ctx.fillRect(880,0,400,H);
+  // 左版：標題＋圖鑑
+  ctx.textAlign='left';
+  ctx.fillStyle='#ffd166';ctx.font='900 40px "Noto Sans TC",sans-serif';
+  ctx.fillText('🏃 小朋友',40,120);ctx.fillText('下樓梯',40,168);
+  ctx.fillStyle='#8fd6ff';ctx.font='16px "Noto Sans TC",sans-serif';
+  ctx.fillText('Fall Down・NS-Shaft like',40,196);
+  ctx.fillStyle='#cfe0ef';ctx.font='16px "Noto Sans TC",sans-serif';
+  const legend=[['🟫','普通地板・回血+1'],['❓','假地板・0.3秒消失'],['🟢','彈簧・彈飛上去'],['◀▶','傳送帶・會帶著走'],['🔻','釘板・扣4格血'],['⚠️','頂部釘子・扣3格，別被頂到'],['🕳️','掉出底部＝直接結束']];
+  legend.forEach((L,i)=>ctx.fillText(L[0]+' '+L[1],40,240+i*30));
+  ctx.fillStyle='#6b8aa3';ctx.font='14px sans-serif';
+  ctx.fillText('← → / A D 移動',40,500);
+  ctx.fillText('手機：按住左右半屏',40,524);
+  ctx.fillText('R 重來・P 暫停',40,548);
+  if(BEST>0){ctx.fillStyle='#ffe9a8';ctx.font='bold 17px sans-serif';ctx.fillText('🏆 最佳 B'+BEST,40,590);}
+  // 右版：深度＋狀態
+  ctx.fillStyle='#ffd166';ctx.font='900 58px sans-serif';ctx.textAlign='left';
+  ctx.fillText('B'+score,920,150);
+  ctx.fillStyle='#8fd6ff';ctx.font='17px "Noto Sans TC",sans-serif';
+  ctx.fillText('目前深度',920,180);
+  ctx.fillStyle='#cfe0ef';ctx.font='16px "Noto Sans TC",sans-serif';
+  ctx.fillText('速度 '+Math.round(speed())+' px/s',920,230);
+  ctx.fillText('難度隨深度上升，',920,260);
+  ctx.fillText('釘板會越來越多…',920,284);
+  // 血量條
+  ctx.fillStyle='#cfe0ef';ctx.fillText('🩸 血量',920,330);
+  const bw=300;
+  ctx.fillStyle='rgba(255,255,255,.12)';rr(920,342,bw,22,11);ctx.fill();
+  const lr=hero?hero.life/MAX_LIFE:1;
+  ctx.fillStyle=lr>.5?'#7CFFB2':lr>.25?'#ffd166':'#e63946';
+  if(lr>0){rr(920,342,bw*lr,22,11);ctx.fill();}
+  ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';ctx.textAlign='center';
+  ctx.fillText((hero?hero.life:MAX_LIFE)+' / '+MAX_LIFE,920+bw/2,359);
+  ctx.textAlign='left';ctx.fillStyle='#6b8aa3';ctx.font='14px sans-serif';
+  ctx.fillText('落地回血＋1・釘板－4',920,392);
+  ctx.fillText('Single-file Canvas・免安裝',920,640);
+
+  // 豎井底色
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#1b2f4a');g.addColorStop(1,'#0e1a2c');
+  ctx.fillStyle=g;ctx.fillRect(SX,0,SW,H);
+  // 速度線
+  if(started&&!over&&!paused&&(speed()>165||(hero&&hero.vy>760))){
+    ctx.strokeStyle='rgba(143,214,255,.25)';ctx.lineWidth=2;
+    for(let i=0;i<14;i++){
+      const lx=SX+8+Math.random()*(SW-16),ly=Math.random()*H,len=40+Math.random()*80;
+      ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(lx,ly+len);ctx.stroke();
+    }
+  }
+  // 井內（裁切）
+  ctx.save();
+  ctx.beginPath();ctx.rect(SX,CEIL,SW,H-CEIL);ctx.clip();
+  for(const f of floors)drawFloor(f);
+  if(hero&&started)drawHero();
+  // 粒子
+  for(const p of parts){ctx.globalAlpha=Math.min(1,p.life*2);ctx.fillStyle=p.col;ctx.fillRect(p.x-p.r/2,p.y-p.r/2,p.r,p.r);}
+  ctx.globalAlpha=1;
+  ctx.restore();
+  // 牆＋頂釘＋底警告
+  ctx.fillStyle='#243b53';
+  ctx.fillRect(SX-12,0,12,H);ctx.fillRect(SX+SW,0,12,H);
+  ctx.fillStyle='rgba(255,209,102,.25)';
+  ctx.fillRect(SX-12,0,3,H);ctx.fillRect(SX+SW+9,0,3,H);
+  // 頂部釘排
+  ctx.fillStyle='#f1fa8c';
+  ctx.beginPath();
+  for(let x=SX;x<SX+SW;x+=16){ctx.moveTo(x,CEIL);ctx.lineTo(x+8,CEIL-16);ctx.lineTo(x+16,CEIL);}
+  ctx.fill();
+  ctx.fillStyle='#5c677d';ctx.fillRect(SX,CEIL-19,SW,4);
+  // 底部危險漸層
+  const dg=ctx.createLinearGradient(0,H-90,0,H);
+  dg.addColorStop(0,'rgba(230,57,70,0)');dg.addColorStop(1,'rgba(230,57,70,.4)');
+  ctx.fillStyle=dg;ctx.fillRect(SX,H-90,SW,90);
+  // 血量條（井口）
+  if(hero){
+    const w2=SW-20,lr2=hero.life/MAX_LIFE;
+    ctx.fillStyle='rgba(0,0,0,.5)';rr(SX+10,CEIL+8,w2,10,5);ctx.fill();
+    ctx.fillStyle=lr2>.5?'#7CFFB2':lr2>.25?'#ffd166':'#e63946';
+    if(lr2>0){rr(SX+10,CEIL+8,w2*lr2,10,5);ctx.fill();}
+  }
+  // 浮字
+  ctx.textAlign='center';
+  for(const f of floats){
+    ctx.globalAlpha=Math.max(0,1-f.t/1.2);
+    ctx.fillStyle=f.col;ctx.font='900 44px "Noto Sans TC",sans-serif';
+    ctx.fillText(f.txt,SX+SW/2,300-f.t*90);
+  }
+  ctx.globalAlpha=1;
+  if(paused&&!over){
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='900 54px "Noto Sans TC",sans-serif';
+    ctx.fillText('⏸ 暫停中',W/2,H/2);
+  }
+  ctx.restore();
+  // HUD 血量即時（避免每幀打 DOM，只在變化時由 syncHud 處理）
+  requestAnimationFrame(draw);
+}
+
+/* ---------- 主迴圈 ---------- */
+let last=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min(.05,(ts-last)/1000||0);last=ts;
+  if(!started||over||paused)return;
+  update(dt);
+}
+
+/* ---------- 輸入 ---------- */
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='arrowleft'||k==='a'){dirL=true;e.preventDefault();}
+  if(k==='arrowright'||k==='d'){dirR=true;e.preventDefault();}
+  if(k===' '||k==='enter'){
+    e.preventDefault();
+    if(!started||over)reset();
+    else togglePause();
+  }
+  if(k==='r')reset();
+  if(k==='p'&&started&&!over)togglePause();
+});
+addEventListener('keyup',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='arrowleft'||k==='a')dirL=false;
+  if(k==='arrowright'||k==='d')dirR=false;
+});
+function evPos(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};}
+cv.addEventListener('pointerdown',e=>{
+  if(!started||over||paused)return;
+  try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();}catch(_){}
+  const{x}=evPos(e);
+  touchDir=x<W/2?-1:1;
+  if(cv.setPointerCapture){try{cv.setPointerCapture(e.pointerId);}catch(_){}}
+});
+addEventListener('pointermove',e=>{
+  if(touchDir===0||!started||over||paused)return;
+  if(e.pressure===0&&e.pointerType==='mouse')return;
+  const r=cv.getBoundingClientRect();
+  if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom){touchDir=0;return;}
+  touchDir=((e.clientX-r.left)*W/r.width)<W/2?-1:1;
+});
+addEventListener('pointerup',()=>{touchDir=0;});
+addEventListener('pointercancel',()=>{touchDir=0;});
+function togglePause(){
+  if(!started||over)return;
+  paused=!paused;
+  $('b-pause').textContent=paused?'▶ 繼續':'⏸ 暫停';
+  sfx.click();
+}
+$('b-pause').onclick=togglePause;
+$('b-restart').onclick=()=>{sfx.click();reset();};
+$('c-retry').onclick=()=>{sfx.click();reset();};
+$('c-go').onclick=()=>{
+  sfx.click();
+  if(over){reset();}
+  else{$('panel').style.display='none';started=true;paused=false;}
+};
+
+/* ---------- 開場 ---------- */
+$('c-title').textContent='🏃 小朋友下樓梯';
+$('c-sub').innerHTML='左右移動，一路往下跳！落地回血＋1，釘板扣血，別被頂到天花板釘子，也別摔出底部。<br>歷史最佳：'+(BEST?('B'+BEST):'尚未挑戰')+'<br><span style="font-size:13px">← → / AD・手機按住左右半屏・R 重來・P 暫停</span>';
+$('c-retry').textContent='↻ 直接開始';$('c-go').textContent='開始挑戰 ▶';
+$('panel').style.display='flex';
+hero={x:SX+(SW-36)/2,y:H-220,w:36,h:44,vx:0,vy:0,face:1,on:null,landT:0,inv:0,life:MAX_LIFE};
+syncHud();
+requestAnimationFrame(draw);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

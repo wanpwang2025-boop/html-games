@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>華容道 | Klotski</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#0b1622;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden}
+  #app{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 700px at 50% 15%,#1b3a55 0%,#0b1622 70%)}
+  #stage{position:relative;aspect-ratio:16/9;width:min(100vw,177.78vh);max-height:100vh;border-radius:14px;overflow:hidden;box-shadow:0 20px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}
+  canvas{width:100%;height:100%;display:block;touch-action:none;cursor:pointer}
+  #hud{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:5;pointer-events:none}
+  .pill{background:rgba(8,20,32,.75);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800;white-space:nowrap}
+  .pill b{color:#ffd166}
+  #btns{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:6}
+  button{cursor:pointer;border:none;border-radius:10px;padding:8px 14px;font-size:14px;font-weight:800;font-family:inherit}
+  .btn-warning{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200}
+  .btn-ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)}
+  button:hover{filter:brightness(1.1)} button:active{transform:translateY(1px)}
+  #panel{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:10}
+  #card{background:linear-gradient(180deg,#fffdf4,#ffeec2);border-radius:18px;padding:30px 44px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);max-width:82%}
+  #card h2{font-size:34px;margin-bottom:6px}
+  #card p{font-size:16px;color:#5b4a00;margin:4px 0;line-height:1.7}
+  #card .row{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+  #tip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:12.5px;color:#fff;background:rgba(0,0,0,.5);padding:5px 16px;border-radius:999px;z-index:5;white-space:nowrap}
+  #lvlbar{position:absolute;top:56px;left:10px;display:flex;gap:8px;z-index:6;align-items:center}
+  #lvl-sel{font-family:inherit;font-size:13.5px;font-weight:800;border-radius:10px;padding:7px 10px;background:rgba(8,20,32,.88);color:#ffd166;border:1px solid rgba(255,209,102,.5);cursor:pointer;max-width:240px}
+  #lvl-sel option{color:#111;font-weight:400}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="hud">
+    <div class="pill">🏯 <span id="h-level">橫刀立馬</span></div>
+    <div class="pill">👣 步數 <b id="h-moves">0</b></div>
+    <div class="pill">⏱️ 時間 <b id="h-time">0:00</b></div>
+    <div class="pill">🏆 最佳 <b id="h-best">—</b></div>
+    <div class="pill">🧭 剩餘 <b id="h-left">—</b></div>
+  </div>
+  <div id="btns">
+    <button class="btn-ghost" id="b-hint">💡 提示</button>
+    <button class="btn-ghost" id="b-auto">▶ 自動</button>
+    <button class="btn-ghost" id="b-undo">↩ 悔棋</button>
+    <button class="btn-warning" id="b-restart">↻ 重來</button>
+  </div>
+  <div id="lvlbar">
+    <select id="lvl-sel"></select>
+    <div class="pill">📜 最優 <b id="h-par">—</b></div>
+  </div>
+  <div id="panel"><div id="card">
+    <h2 id="c-title">🏯 華容道</h2>
+    <p id="c-sub"></p>
+    <div class="row">
+      <button class="btn-ghost" style="color:#333;border-color:#999" id="c-retry">↻ 再來一局</button>
+      <button class="btn-warning" id="c-go">開始挑戰 ▶</button>
+    </div>
+  </div></div>
+  <div id="tip">🖱️ 拖動棋子滑動・點選後也可用方向鍵移動・把曹操移到下方出口 ⬇</div>
+</div></div>
+<script>
+"use strict";
+const W=1280,H=720,COLS=4,ROWS=5,CELL=116;
+const BX=408,BY=70; // 棋盤左上（464x580 置中）
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+
+/* ---------- 音效 ---------- */
+let AC=null;
+function beep(f,d=.12,type='triangle',v=.08){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+const sfx={move:()=>beep(420,.07,'triangle',.09),pick:()=>beep(600,.06,'sine',.08),deny:()=>beep(160,.12,'sawtooth',.07),win:()=>{[523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>beep(f,.22,'triangle',.1),i*130));}};
+
+/* ---------- 存檔（每關獨立最佳） ---------- */
+const KEY_BESTS='hg-huarong-bests',KEY_BEST_OLD='hg-huarong-best',KEY_LV='hg-huarong-level';
+let BESTS=[];
+try{BESTS=JSON.parse(localStorage.getItem(KEY_BESTS)||'null')||[];}catch(e){BESTS=[];}
+try{const old=+(localStorage.getItem(KEY_BEST_OLD)||0);if(old&&!BESTS[0]){BESTS[0]=old;localStorage.setItem(KEY_BESTS,JSON.stringify(BESTS));}}catch(e){} // 舊版單一最佳→第1關
+function saveBest(lv,m){if(!BESTS[lv]||m<BESTS[lv]){BESTS[lv]=m;try{localStorage.setItem(KEY_BESTS,JSON.stringify(BESTS));}catch(e){}}}
+
+/* ---------- 12 經典棋譜 ----------
+// 擺法來源：jeantimex/klotski（MIT，40 局華容道棋譜）
+// par＝本站求解器實測最優（單格一步制）；ref＝文獻步數（同濟會刊，1x1連走兩格算一步制）
+*/
+const LEVELS=[
+ {name:'橫刀立馬',par:116,ref:81, cc:[1,0],v:[[0,0],[3,0],[0,2],[3,2]],h:[[1,2]],s:[[1,3],[2,3],[0,4],[3,4]]},
+ {name:'一路順風',par:49,ref:39, cc:[1,0],v:[[0,0],[0,2],[3,2],[2,3]],h:[[1,2]],s:[[3,0],[3,1],[1,3],[1,4]]},
+ {name:'堵塞要道',par:53,ref:40, cc:[1,0],v:[[0,2],[1,2]],h:[[2,2],[2,3],[1,4]],s:[[0,0],[3,0],[0,1],[3,1]]},
+ {name:'前擋後阻',par:53,ref:42, cc:[0,0],v:[[2,1],[0,2],[1,2]],h:[[2,0],[1,4]],s:[[3,1],[3,2],[2,3],[3,3]]},
+ {name:'雨聲淅瀝',par:60,ref:47, cc:[1,0],v:[[0,0],[0,2],[3,2],[1,3]],h:[[1,2]],s:[[3,0],[3,1],[0,4],[3,4]]},
+ {name:'左右布兵',par:78,ref:54, cc:[1,0],v:[[0,2],[1,2],[2,2],[3,2]],h:[[1,4]],s:[[0,0],[3,0],[0,1],[3,1]]},
+ {name:'一路進軍',par:81,ref:58, cc:[1,0],v:[[0,0],[0,2],[1,2],[2,2]],h:[[1,4]],s:[[3,0],[3,1],[3,2],[3,3]]},
+ {name:'齊頭並進',par:85,ref:60, cc:[1,0],v:[[0,0],[3,0],[0,3],[3,3]],h:[[1,3]],s:[[0,2],[1,2],[2,2],[3,2]]},
+ {name:'將擁曹營',par:101,ref:72, cc:[1,0],v:[[0,1],[3,1],[1,2],[2,2]],h:[[0,4]],s:[[0,3],[3,3],[2,4],[3,4]]},
+ {name:'守口如瓶',par:103,ref:81, cc:[1,0],v:[[0,0],[3,0],[1,2]],h:[[0,4],[2,4]],s:[[0,2],[3,2],[0,3],[3,3]]},
+ {name:'層層設防',par:138,ref:102, cc:[1,0],v:[[0,0],[3,0]],h:[[1,2],[1,3],[1,4]],s:[[0,2],[3,2],[0,3],[3,3]]},
+ {name:'峰迴路轉',par:179,ref:140, cc:[0,1],v:[[3,0],[2,1],[3,2]],h:[[1,3],[2,4]],s:[[0,0],[1,0],[2,0],[1,4]]},
+];
+const V_NAMES=['張飛','趙雲','馬超','黃忠','偏將','偏將'];
+const H_NAMES=['關羽','副將','副將','副將'];
+const V_COLS=[['#2a9d8f','#1d6f65'],['#2a9d8f','#1d6f65'],['#457b9d','#2c4f66'],['#457b9d','#2c4f66'],['#6c7a89','#49525e'],['#6c7a89','#49525e']];
+function buildPieces(lv){
+  const P=[{id:'cc',name:'曹操',c:lv.cc[0],r:lv.cc[1],w:2,h:2,col:['#e63946','#b91c1c'],fg:'#fff'}];
+  lv.v.forEach((p,i)=>P.push({id:'v'+i,name:V_NAMES[i]||'偏將',c:p[0],r:p[1],w:1,h:2,col:V_COLS[i]||V_COLS[4],fg:'#fff'}));
+  lv.h.forEach((p,i)=>P.push({id:'h'+i,name:H_NAMES[i]||'副將',c:p[0],r:p[1],w:2,h:1,col:['#e9c46a','#c98f1b'],fg:'#3a2200'}));
+  lv.s.forEach((p,i)=>P.push({id:'s'+i,name:'兵',c:p[0],r:p[1],w:1,h:1,col:['#8d99ae','#5c677d'],fg:'#fff'}));
+  return P;
+}
+let TW=[],TH=[]; // 本關 solver 尺寸表（盤面組成每關不同）
+let level=0;try{level=+(localStorage.getItem(KEY_LV)||0)||0;}catch(e){}
+level=Math.min(LEVELS.length-1,Math.max(0,level));
+
+let pieces=[],moves=0,sec=0,over=false,started=false,sel=null,history=[];
+let drag=null; // {p,sx,sy,origPx,origPy}
+
+/* 佔用格：回傳 Map "c,r" -> piece（排除 ignore） */
+function occMap(ignore){const m=new Map();for(const p of pieces){if(p===ignore)continue;for(let dc=0;dc<p.w;dc++)for(let dr=0;dr<p.h;dr++)m.set((p.c+dc)+','+(p.r+dr),p);}return m;}
+function canPlace(p,tc,tr,ignore){if(tc<0||tr<0||tc+p.w>COLS||tr+p.h>ROWS)return false;const m=occMap(ignore||p);for(let dc=0;dc<p.w;dc++)for(let dr=0;dr<p.h;dr++)if(m.has((tc+dc)+','+(tr+dr)))return false;return true;}
+/* 從 (c,r) 到 (tc,tr) 是否直線淨空（一次只走直線） */
+function pathClear(p,tc,tr){
+  if(tc===p.c&&tr===p.r)return true;
+  if(tc!==p.c&&tr!==p.r)return false;
+  const m=occMap(p);
+  const dc=Math.sign(tc-p.c),dr=Math.sign(tr-p.r);
+  let c=p.c,r=p.r;
+  while(c!==tc||r!==tr){
+    c+=dc;r+=dr;
+    for(let x=0;x<p.w;x++)for(let y=0;y<p.h;y++)if(m.has((c+x)+','+(r+y)))return false;
+  }
+  return true;
+}
+/* 列出某棋一步可走的格（保留供日後打亂關用） */
+function stepsFor(p){
+  const out=[];const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  for(const[dx,dy]of dirs){const tc=p.c+dx,tr=p.r+dy;if(canPlace(p,tc,tr,p))out.push({tc,tr});}
+  return out;
+}
+function buildLvlSel(){
+  const sel=$('lvl-sel');sel.innerHTML='';
+  LEVELS.forEach((lv,i)=>{
+    const o=document.createElement('option');o.value=i;
+    o.textContent=(i+1)+'・'+lv.name+'・最優'+lv.par;
+    sel.appendChild(o);
+  });
+}
+function syncLvl(){
+  const sel=$('lvl-sel');
+  if(!sel.options.length)buildLvlSel();
+  sel.value=level;
+  $('h-level').textContent=(level+1)+'・'+LEVELS[level].name;
+  $('h-par').textContent=LEVELS[level].par+' 步';
+}
+function reset(lv){
+  level=Math.min(LEVELS.length-1,Math.max(0,lv));try{localStorage.setItem(KEY_LV,String(level));}catch(e){}
+  pieces=buildPieces(LEVELS[level]);
+  TW=pieces.map(p=>p.w);TH=pieces.map(p=>p.h);
+  for(const p of pieces){p.px=BX+p.c*CELL;p.py=BY+p.r*CELL;}
+  moves=0;sec=0;over=false;started=true;sel=null;history=[];drag=null;
+  clearHint();stopAuto();solCache={key:null,moves:null};
+  $('h-left').textContent='—';$('tip').textContent='🖱️ 拖動棋子滑動・💡提示・▶自動解題・把曹操移到下方出口 ⬇';
+  $('panel').style.display='none';syncHud();syncLvl();
+}
+function syncHud(){
+  $('h-moves').textContent=moves;
+  const m=(sec/60)|0,s=sec%60;$('h-time').textContent=m+':'+String(s).padStart(2,'0');
+  const b=BESTS[level];
+  $('h-best').textContent=b>0?b+' 步':'—';
+}
+function doMove(p,tc,tr){
+  history.push(pieces.map(q=>({id:q.id,c:q.c,r:q.r})));
+  if(history.length>500)history.shift();
+  p.c=tc;p.r=tr;p.px=BX+tc*CELL;p.py=BY+tr*CELL;
+  moves++;sel=p;sfx.move();syncHud();
+  clearHint();solCache={key:null,moves:null};$('h-left').textContent='—';
+  const cc=pieces[0];
+  if(cc.c===1&&cc.r===3)win();
+}
+function undo(){
+  if(!history.length||over&&false)return;
+  if(over)return;
+  const h=history.pop();if(!h)return;
+  for(const s of h){const p=pieces.find(q=>q.id===s.id);p.c=s.c;p.r=s.r;p.px=BX+p.c*CELL;p.py=BY+p.r*CELL;}
+  moves=Math.max(0,moves-1);sel=null;sfx.pick();syncHud();
+  clearHint();solCache={key:null,moves:null};$('h-left').textContent='—';
+}
+function win(){
+  over=true;stopAuto();clearHint();saveBest(level,moves);syncHud();sfx.win();
+  const par=LEVELS[level].par;
+  const stars=moves<=par?3:moves<=Math.ceil(par*1.5)?2:1;
+  const tag=moves<=par?'🏆 追平電腦最優解！':moves<=Math.ceil(par*1.5)?'💪 接近最優，再拼一下！':'📜 棋譜最優 '+par+' 步，可按 ▶ 看解法學路線';
+  $('c-title').textContent='🎉 曹操突圍成功！ '+'★'.repeat(stars)+'☆'.repeat(3-stars);
+  $('c-sub').innerHTML='【'+LEVELS[level].name+'】用 '+moves+' 步・'+$('h-time').textContent+'<br>'+tag+'<br>本關最佳：'+(BESTS[level]?BESTS[level]+' 步':'—');
+  $('c-retry').textContent='↻ 再來一局';$('c-go').textContent='下一關 ▶';
+  $('panel').style.display='flex';
+}
+
+/* ---------- 求解器：BFS 最少步（單格一步） ---------- */
+let hintMove=null,autoTimer=null,solCache={key:null,moves:null};
+function solverState(){
+  // 盤面組成每關不同：直接用 pieces 順序，同類棋視為相同（canonKey 內排序）
+  return {arr:pieces.map(p=>[p.c,p.r]).flat()};
+}
+function canonKey(a){
+  const groups=new Map();
+  for(let i=0;i<TW.length;i++){
+    const k=TW[i]+'x'+TH[i];
+    if(!groups.has(k))groups.set(k,[]);
+    groups.get(k).push(a[i*2]+a[i*2+1]*4);
+  }
+  return [...groups.entries()].sort((x,y)=>x[0]<y[0]?-1:1)
+    .map(([k,v])=>k+':'+v.sort((x,y)=>x-y).join('.')).join('|');
+}
+function solveBFS(maxStates=80000){
+  const s0=solverState().arr;
+  const k0=canonKey(s0);
+  if(s0[0]===1&&s0[1]===3)return{moves:[],visited:1};
+  const q=[s0],keys=[k0];
+  const seen=new Map([[k0,-1]]); // key -> queue index
+  const par=new Map(); // key -> {pk, idx, tc, tr, fc, fr}
+  const grid=new Array(20);
+  const N=TW.length;
+  let head=0;
+  const DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
+  while(head<q.length){
+    if(seen.size>maxStates)return{moves:null,visited:seen.size,overflow:true};
+    const cur=q[head],ck=keys[head];head++;
+    // 建佔用格
+    grid.fill(-1);
+    for(let i=0;i<N;i++){const c=cur[i*2],r=cur[i*2+1],w=TW[i],h=TH[i];
+      for(let x=0;x<w;x++)for(let y=0;y<h;y++)grid[(r+y)*4+(c+x)]=i;}
+    for(let i=0;i<N;i++){
+      const c=cur[i*2],r=cur[i*2+1],w=TW[i],h=TH[i];
+      for(const[dx,dy]of DIRS){
+        const tc=c+dx,tr=r+dy;
+        if(tc<0||tr<0||tc+w>COLS||tr+h>ROWS)continue;
+        let ok=true;
+        for(let x=0;x<w&&ok;x++)for(let y=0;y<h;y++){const o=grid[(tr+y)*4+(tc+x)];if(o!==-1&&o!==i){ok=false;break;}}
+        if(!ok)continue;
+        const nx=cur.slice();nx[i*2]=tc;nx[i*2+1]=tr;
+        const nk=canonKey(nx);
+        if(seen.has(nk))continue;
+        seen.set(nk,q.length);
+        par.set(nk,{pk:ck,idx:i,fc:c,fr:r,tc,tr});
+        if(tc===1&&tr===3&&i===0||nx[0]===1&&nx[1]===3){
+          // 重建路徑
+          const moves=[];let k=nk;
+          while(k!==k0){const e=par.get(k);moves.push(e);k=e.pk;}
+          moves.reverse();
+          return{moves,visited:seen.size};
+        }
+        q.push(nx);keys.push(nk);
+      }
+    }
+  }
+  return{moves:null,visited:seen.size};
+}
+function curSolKey(){return pieces.map(p=>p.id+':'+p.c+','+p.r).join(';');}
+function getSolution(){
+  const k=curSolKey();
+  if(solCache.key===k)return solCache.moves;
+  const r=solveBFS();
+  solCache={key:k,moves:r.moves,overflow:r.overflow,visited:r.visited};
+  return solCache.moves;
+}
+/* 把 solver 的一步對應到畫面上的實際棋子 */
+function matchPiece(mv){
+  const w=TW[mv.idx],h=TH[mv.idx];
+  return pieces.find(p=>p.w===w&&p.h===h&&p.c===mv.fc&&p.r===mv.fr)||null;
+}
+function clearHint(){hintMove=null;}
+function stopAuto(){if(autoTimer){clearInterval(autoTimer);autoTimer=null;$('b-auto').textContent='▶ 自動';}}
+function showHint(){
+  if(!started){$('panel').style.display='none';started=true;}
+  if(over)return;
+  stopAuto();
+  const t0=performance.now();
+  const moves=getSolution();
+  const ms=Math.round(performance.now()-t0);
+  if(!moves){$('tip').textContent=solCache.overflow?'⚠️ 局面太複雜，搜尋超時（已看 '+solCache.visited+' 局）':'⚠️ 找不到解法';return;}
+  if(!moves.length){$('tip').textContent='🎉 已經在終點了！';return;}
+  const mv=moves[0],p=matchPiece(mv);
+  if(!p){$('tip').textContent='⚠️ 對應棋子失敗';return;}
+  sel=p;keySel=p;
+  const dir=mv.tc>mv.fc?'→ 右':mv.tc<mv.fc?'← 左':mv.tr>mv.fr?'↓ 下':'↑ 上';
+  hintMove={p,dx:mv.tc-mv.fc,dy:mv.tr-mv.fr};
+  sfx.pick();
+  $('tip').textContent='💡 把【'+p.name+'】往 '+dir+' 走 1 格（剩餘 '+moves.length+' 步・算 '+ms+'ms）・再按一次看下一步';
+  $('h-left').textContent=moves.length+' 步';
+}
+function startAuto(){
+  if(!started){$('panel').style.display='none';started=true;}
+  if(over)return;
+  if(autoTimer){stopAuto();$('tip').textContent='⏸ 已暫停自動，可自己接著玩或按 💡 提示';return;}
+  const moves=getSolution();
+  if(!moves){$('tip').textContent='⚠️ 找不到解法';return;}
+  if(!moves.length)return;
+  $('b-auto').textContent='⏸ 停止';
+  $('tip').textContent='▶ 自動解題中…（共 '+moves.length+' 步）・點棋盤可接管';
+  sfx.pick();
+  const plan=moves.slice(); // 一次算好，逐步播放（中途被接管就停）
+  autoTimer=setInterval(()=>{
+    if(over||!plan.length){stopAuto();return;}
+    const step=plan.shift();
+    const p=pieces.find(q=>q.w===TW[step.idx]&&q.h===TH[step.idx]&&q.c===step.fc&&q.r===step.fr);
+    if(!p){stopAuto();$('tip').textContent='⚠️ 局面已變，自動停止・按 💡 重新提示';return;}
+    clearHint();doMove(p,step.tc,step.tr);
+    $('h-left').textContent=plan.length+' 步';
+    $('tip').textContent='▶ 自動解題中…（剩 '+plan.length+' 步）・點棋盤可接管';
+    if(over)stopAuto();
+  },380);
+}
+
+/* ---------- 計時 ---------- */
+setInterval(()=>{if(started&&!over){sec++;syncHud();}},1000);
+
+/* ---------- 輸入：拖曳＋點選＋鍵盤 ---------- */
+function evPos(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};}
+function pieceAt(x,y){for(let i=pieces.length-1;i>=0;i--){const p=pieces[i];if(x>=p.px&&x<=p.px+p.w*CELL&&y>=p.py&&y<=p.py+p.h*CELL)return p;}return null;}
+let keySel=null;
+cv.addEventListener('pointerdown',e=>{if(!started||over)return;stopAuto();clearHint();try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();}catch(_){}const{x,y}=evPos(e);const p=pieceAt(x,y);if(p){sel=p;keySel=p;sfx.pick();drag={p,sx:x,sy:y,origPx:p.px,origPy:p.py};cv.setPointerCapture&&tryCatch(()=>cv.setPointerCapture(e.pointerId));}});
+cv.addEventListener('pointermove',e=>{if(!drag||!started||over)return;const{x,y}=evPos(e);const p=drag.p;let nx=drag.origPx+(x-drag.sx),ny=drag.origPy+(y-drag.sy);nx=Math.max(BX-20,Math.min(BX+COLS*CELL-p.w*CELL+20,nx));ny=Math.max(BY-20,Math.min(BY+ROWS*CELL-p.h*CELL+20,ny));p.px=nx;p.py=ny;});
+cv.addEventListener('pointerup',e=>{
+  if(!drag)return;const p=drag.p;drag=null;if(!started||over)return;
+  let tc=Math.round((p.px-BX)/CELL),tr=Math.round((p.py-BY)/CELL);
+  tc=Math.max(0,Math.min(COLS-p.w,tc));tr=Math.max(0,Math.min(ROWS-p.h,tr));
+  if((tc!==p.c||tr!==p.r)&&pathClear(p,tc,tr)&&canPlace(p,tc,tr,p)){doMove(p,tc,tr);}
+  else{p.px=BX+p.c*CELL;p.py=BY+p.r*CELL;if(tc!==p.c||tr!==p.r)sfx.deny();}
+});
+function tryCatch(f){try{f();}catch(e){}}
+addEventListener('keydown',e=>{
+  if(!started||over)return;
+  const k=e.key;
+  const arrows={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],W:[0,-1],S:[0,1],A:[-1,0],D:[1,0]};
+  if(k==='Tab'){e.preventDefault();const i=pieces.indexOf(keySel);keySel=pieces[(i+1)%pieces.length];sel=keySel;sfx.pick();return;}
+  if(k==='u'||k==='U'||k==='z'||k==='Z'){undo();return;}
+  const d=arrows[k];if(d&&keySel){
+    e.preventDefault();stopAuto();clearHint();
+    const tc=keySel.c+d[0],tr=keySel.r+d[1];
+    if(canPlace(keySel,tc,tr,keySel))doMove(keySel,tc,tr);else sfx.deny();
+  }
+});
+$('b-undo').onclick=()=>{stopAuto();undo();};
+$('b-hint').onclick=showHint;
+$('b-auto').onclick=startAuto;
+$('b-restart').onclick=()=>reset(level);
+$('lvl-sel').onchange=e=>reset(+e.target.value);
+$('c-retry').onclick=()=>reset(level);
+$('c-go').onclick=()=>{
+  if(over){reset((level+1)%LEVELS.length);}
+  else{$('panel').style.display='none';started=true;}
+};
+
+/* ---------- 繪圖 ---------- */
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function draw(){
+  ctx.fillStyle='#141428';ctx.fillRect(0,0,W,H);
+  // 背景霓虹格
+  ctx.strokeStyle='rgba(120,180,255,.07)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=64){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=64){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // 標題（右側）
+  ctx.textAlign='left';
+  ctx.fillStyle='#ffd166';ctx.font='900 44px "Noto Sans TC",sans-serif';
+  ctx.fillText('🏯 華容道',930,180);
+  ctx.fillStyle='#9fc3dd';ctx.font='20px "Noto Sans TC",sans-serif';
+  ctx.fillText('把 曹操 移到下方出口',930,220);
+  ctx.fillText('⬇ 出口在棋盤正下方 ⬇',930,250);
+  ctx.fillStyle='#cfe0ef';ctx.font='17px "Noto Sans TC",sans-serif';
+  const lines=['✔ 拖動棋子：一次走直線','✔ 點選＋方向鍵/WASD 微調','✔ Tab 切換選中・Z 悔棋','✔ 💡提示給下一步・▶自動全解','✔ 12 棋譜・追平最優拿三星！'];
+  lines.forEach((t,i)=>ctx.fillText(t,930,300+i*32));
+  if(sel&&!over){ctx.fillStyle='#ffe9a8';ctx.font='bold 19px "Noto Sans TC",sans-serif';ctx.fillText('選中：'+sel.name+'（用方向鍵走）',930,470);}
+  ctx.fillStyle='#6b8aa3';ctx.font='15px sans-serif';ctx.fillText('Klotski・單檔 Canvas・免安裝',930,640);
+  // 棋盤底
+  ctx.fillStyle='#0a0f1c';rr(BX-18,BY-18,COLS*CELL+36,ROWS*CELL+36,18);ctx.fill();
+  ctx.fillStyle='#243b53';rr(BX-18,BY-18,COLS*CELL+36,ROWS*CELL+36,18);ctx.fill();
+  ctx.fillStyle='#101b2c';ctx.fillRect(BX,BY,COLS*CELL,ROWS*CELL);
+  // 出口標記
+  ctx.fillStyle='rgba(255,209,102,.9)';ctx.fillRect(BX+CELL,BY+ROWS*CELL+2,CELL*2,8);
+  ctx.fillStyle='#ffd166';ctx.font='900 22px sans-serif';ctx.textAlign='center';
+  ctx.fillText('▼ 出 口 ▼',BX+COLS*CELL/2,BY+ROWS*CELL+36);
+  // 格線
+  ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=1;
+  for(let c=0;c<=COLS;c++){ctx.beginPath();ctx.moveTo(BX+c*CELL,BY);ctx.lineTo(BX+c*CELL,BY+ROWS*CELL);ctx.stroke();}
+  for(let r=0;r<=ROWS;r++){ctx.beginPath();ctx.moveTo(BX,BY+r*CELL);ctx.lineTo(BX+COLS*CELL,BY+r*CELL);ctx.stroke();}
+  // 棋子
+  for(const p of pieces){
+    const x=p.px,y=p.py,w=p.w*CELL,h=p.h*CELL;
+    const isSel=(p===sel||p===keySel);
+    ctx.save();
+    if(isSel){ctx.shadowColor='rgba(255,209,102,.9)';ctx.shadowBlur=24;}
+    const g=ctx.createLinearGradient(x,y,x,y+h);
+    g.addColorStop(0,p.col[0]);g.addColorStop(1,p.col[1]);
+    ctx.fillStyle=g;rr(x+5,y+5,w-10,h-10,14);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.lineWidth=isSel?4:2;ctx.strokeStyle=isSel?'#ffd166':'rgba(255,255,255,.35)';
+    rr(x+5,y+5,w-10,h-10,14);ctx.stroke();
+    // 高光
+    ctx.fillStyle='rgba(255,255,255,.18)';rr(x+12,y+11,w-24,Math.min(26,h*0.28),10);ctx.fill();
+    // 名
+    ctx.fillStyle=p.fg;ctx.textAlign='center';ctx.textBaseline='middle';
+    if(p.id==='cc'){ctx.font='900 52px "Noto Sans TC",sans-serif';ctx.fillText('曹',x+w/2,y+h/2-26);ctx.fillText('操',x+w/2,y+h/2+26);}
+    else if(p.w===1&&p.h===2){ctx.font='900 40px "Noto Sans TC",sans-serif';const ch=[...p.name];ctx.fillText(ch[0],x+w/2,y+h/2-24);ctx.fillText(ch[1]||'',x+w/2,y+h/2+24);}
+    else if(p.w===2){ctx.font='900 40px "Noto Sans TC",sans-serif';ctx.fillText(p.name,x+w/2,y+h/2);}
+    else{ctx.font='900 34px "Noto Sans TC",sans-serif';ctx.fillText(p.name,x+w/2,y+h/2);}
+    ctx.restore();
+  }
+  // 💡 提示箭頭（脈動）
+  if(hintMove&&!over){
+    const p=hintMove.p,cx=p.px+p.w*CELL/2,cy=p.py+p.h*CELL/2;
+    const t=(Date.now()/300)%2,off=t<1?t:2-t;
+    const ax=cx+hintMove.dx*(p.w*CELL/2+34+off*10),ay=cy+hintMove.dy*(p.h*CELL/2+34+off*10);
+    ctx.save();
+    ctx.fillStyle='rgba(255,209,102,.95)';ctx.strokeStyle='#7a4d00';ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(ax,ay,26,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#3a2200';ctx.font='900 26px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(hintMove.dx>0?'→':hintMove.dx<0?'←':hintMove.dy>0?'↓':'↑',ax,ay+1);
+    // 從棋子到箭頭的連線
+    ctx.strokeStyle='rgba(255,209,102,.8)';ctx.lineWidth=6;ctx.setLineDash([10,8]);
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ax,ay);ctx.stroke();ctx.setLineDash([]);
+    ctx.restore();
+  }
+  ctx.textBaseline='alphabetic';
+  requestAnimationFrame(draw);
+}
+
+/* ---------- 開場 ---------- */
+$('c-title').textContent='🏯 華容道・12 經典棋譜';
+const b0=BESTS[level];
+$('c-sub').innerHTML='拖動棋子，把 <b>曹操</b> 移到下方出口。<br>【'+LEVELS[level].name+'】棋譜最優 '+LEVELS[level].par+' 步・最佳 '+(b0?b0+' 步':'尚未挑戰')+'<br><span style="font-size:13px">卡關按 💡 提示（最優下一步）或 ▶ 自動全解・下拉選單換棋譜</span>';
+$('c-retry').textContent='↻ 直接開始';$('c-go').textContent='開始挑戰 ▶';
+$('panel').style.display='flex';
+pieces=buildPieces(LEVELS[level]);
+TW=pieces.map(p=>p.w);TH=pieces.map(p=>p.h);
+for(const p of pieces){p.px=BX+p.c*CELL;p.py=BY+p.r*CELL;}
+started=false;syncHud();syncLvl();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

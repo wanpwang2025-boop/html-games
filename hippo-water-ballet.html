@@ -35,6 +35,26 @@
   #btn-camera { background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.2); }
   #btn-camera:hover { background:rgba(255,255,255,.22); }
   #hint { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); font-size:12px; color:rgba(255,255,255,.92); background:rgba(0,0,0,.45); padding:5px 14px; border-radius:999px; white-space:nowrap; z-index:10; }
+  /* 圖片主題秀 */
+  #photo-box { margin-top:10px; background:rgba(255,255,255,.08); border:1px dashed rgba(255,255,255,.25); border-radius:10px; padding:9px 11px; }
+  #photo-title { font-size:13px; font-weight:700; color:#ffe9a8; }
+  #photo-row { display:flex; gap:10px; margin-top:8px; align-items:center; }
+  #photo-thumb { width:64px; height:64px; border-radius:8px; object-fit:cover; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25); }
+  #photo-meta { flex:1; min-width:0; }
+  #palette { display:flex; gap:5px; margin-bottom:6px; }
+  #palette span { width:22px; height:22px; border-radius:6px; border:1px solid rgba(255,255,255,.4); }
+  .meter { display:flex; align-items:center; gap:6px; font-size:11px; color:#cfe9ff; margin-top:3px; }
+  .meter i { font-style:normal; width:32px; }
+  .meter .bar { flex:1; height:6px; border-radius:999px; background:rgba(255,255,255,.15); overflow:hidden; }
+  .meter .bar b { display:block; height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#38e1ff,#7CFFB2); }
+  #theme-name { font-size:13.5px; font-weight:800; color:#fff; margin-top:7px; }
+  #theme-desc { font-size:11.5px; color:#cfe9ff; margin-top:2px; }
+  #btn-row2 { display:flex; gap:8px; margin-top:9px; }
+  #btn-upload { background:linear-gradient(180deg,#7CFFB2,#22b8e6); color:#04222e; }
+  #btn-preset { background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.2); }
+  #preset-row { display:flex; gap:6px; margin-top:8px; }
+  #preset-row button { flex:1; font-size:11.5px; padding:6px 4px; background:rgba(255,255,255,.1); color:#d8f3ff; border:1px solid rgba(255,255,255,.18); border-radius:8px; }
+  #preset-row button.on { background:#ffd166; color:#4a3200; border-color:#ffd166; font-weight:800; }
   #loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#0e2236; color:#bfe9ff; font-size:15px; font-weight:700; z-index:20; transition:opacity .4s; }
 </style>
 <script type="importmap">
@@ -64,8 +84,34 @@
         <button id="btn-replay">↻ 重播表演</button>
         <button id="btn-camera">📷 重置視角</button>
       </div>
+      <div id="photo-box">
+        <div id="photo-title">🎨 圖片主題秀 <span style="font-weight:400;color:#cfe9ff">— 放入圖片，分析特色產生專屬演出</span></div>
+        <div id="photo-row">
+          <img id="photo-thumb" alt="上傳圖片預覽">
+          <div id="photo-meta">
+            <div id="palette"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="meter"><i>明亮</i><div class="bar"><b id="m-bright"></b></div></div>
+            <div class="meter"><i>飽和</i><div class="bar"><b id="m-sat"></b></div></div>
+            <div class="meter"><i>動感</i><div class="bar"><b id="m-energy"></b></div></div>
+            <div class="meter"><i>暖調</i><div class="bar"><b id="m-warm"></b></div></div>
+          </div>
+        </div>
+        <div id="theme-name">🌊 海洋狂歡秀（預設）</div>
+        <div id="theme-desc">水色・燈光・旋轉速度・水花強度會跟著主題走</div>
+        <div id="btn-row2">
+          <button id="btn-upload">📷 放入圖片分析</button>
+          <button id="btn-preset">🎲 換主題</button>
+        </div>
+        <input type="file" id="file-input" accept="image/*" style="display:none">
+        <div id="preset-row">
+          <button data-p="ocean" class="on">海洋</button>
+          <button data-p="sunset">落日</button>
+          <button data-p="night">星空</button>
+          <button data-p="sakura">櫻花</button>
+        </div>
+      </div>
     </div>
-    <div id="hint">🖱️ 拖曳旋轉 • 滾輪縮放 • 右鍵平移 | 全自動循環演出</div>
+    <div id="hint">🖱️ 拖曳旋轉 • 滾輪縮放 • 📷 放入圖片產生專屬主題秀</div>
     <div id="loading">💧 泳池注水中…正在載入 3D 場景</div>
   </div>
 </div>
@@ -148,6 +194,7 @@ class Pool {
     this.rings.forEach(r => { r.t0 = this.time; });
     this.lastRipple = { x, z };
   }
+  setWater(hex) { try { if (hex) this.water.material.color.set(hex); } catch(e) {} }
   waterHeight(x, z, t) {
     let y = Math.sin(x*1.1 + t*1.6)*.045 + Math.cos(z*.9 + t*1.3)*.05 + Math.sin((x+z)*.7 + t*2.1)*.02;
     for (const r of this.ripples) {
@@ -190,6 +237,8 @@ class Hippo {
     const skin = new THREE.MeshStandardMaterial({ color:0x8d8296, roughness:.75 });
     const bellyMat = new THREE.MeshStandardMaterial({ color:0xb3a8bd, roughness:.8 });
     const darkMat = new THREE.MeshStandardMaterial({ color:0x4a4356, roughness:.7 });
+    this.skinMat = skin; this.bellyMat = bellyMat;
+    this.skinHome = skin.color.clone(); this.bellyHome = bellyMat.color.clone();
     // 身體
     const body = new THREE.Mesh(new THREE.SphereGeometry(1,32,24), skin);
     body.scale.set(1.05,.88,1.45); body.castShadow=true; this.group.add(body);
@@ -245,6 +294,15 @@ class Hippo {
     L.knee.rotation.set(kneeX, 0, 0);
   }
   setAllLegs(fn) { for (const n in this.legs){ const [h,k]=fn(n); this.setLegPose(n,h,k);} }
+  // 主題換膚：hex 為身體主色，肚皮自動調亮
+  setTint(hex) {
+    try {
+      if (!hex) { this.skinMat.color.copy(this.skinHome); this.bellyMat.color.copy(this.bellyHome); return; }
+      const c = new THREE.Color(hex);
+      this.skinMat.color.copy(this.skinHome).lerp(c, .45);
+      this.bellyMat.color.copy(this.bellyHome).lerp(c, .3);
+    } catch(e) {}
+  }
 }
 
 /* ============================================================
@@ -291,6 +349,7 @@ class BalletAnimator {
     this.hippo=hippo; this.pool=pool; this.splash=splash; this.ui=ui;
     this.LOOP=14; this.T_DIVE=3.0; this.T_SPLASH=4.0; this.T_BALLET=12.0;
     this.t=0; this.splashed=false; this.scored=false;
+    this.spinMul=1; this.splashPow=1; this.rippleAmp=1; // 主題秀參數（圖片分析後調整）
     this.startPos=new THREE.Vector3(0,3.1,-6.6);
     this.entryPos=new THREE.Vector3(0,0,-1.2);
     this.deepPos=new THREE.Vector3(0,-1.7,-0.4);
@@ -340,8 +399,8 @@ class BalletAnimator {
   phaseSplash(t,H) {
     if(!this.splashed){
       this.splashed=true;
-      this.splash.burst(this.entryPos.x,.1,this.entryPos.z,1.15);
-      this.pool.addRipple(this.entryPos.x,this.entryPos.z,1.0);
+      this.splash.burst(this.entryPos.x,.1,this.entryPos.z,1.15*this.splashPow);
+      this.pool.addRipple(this.entryPos.x,this.entryPos.z,1.0*this.rippleAmp);
     }
     const p=(t-this.T_DIVE)/(this.T_SPLASH-this.T_DIVE);
     // 水中阻尼：速度指數衰減下沉
@@ -363,8 +422,8 @@ class BalletAnimator {
     H.position.y = THREE.MathUtils.lerp(this.deepPos.y,floatY,rise)+wob*rise;
     H.position.x = Math.sin((t-this.T_SPLASH)*.55)*.9;
     H.position.z = -0.4 + Math.cos((t-this.T_SPLASH)*.42)*1.1;
-    // 芭蕾旋轉：Y軸協調轉體（共約 2 圈）
-    H.rotation.y = (t-this.T_SPLASH)*1.55;
+    // 芭蕾旋轉：Y軸協調轉體（共約 2 圈 × 主題倍率）
+    H.rotation.y = (t-this.T_SPLASH)*1.55*this.spinMul;
     H.rotation.x = Math.sin((t-this.T_SPLASH)*1.8)*.12;  // 前後搖曳
     H.rotation.z = Math.sin((t-this.T_SPLASH)*1.4)*.14;  // 左右搖曳
     // 同步游泳式踢腿（前後腿交替）
@@ -375,8 +434,8 @@ class BalletAnimator {
     this.hippo.setLegPose('BR', Math.sin(beat)*.65, .4+Math.max(0,Math.sin(beat+Math.PI+2))*.5);
     this.hippo.joints.head.rotation.x = -.25+Math.sin(beat*.5)*.15;
     this.hippo.joints.head.rotation.y = Math.sin((t-this.T_SPLASH)*.9)*.3;
-    // 踢水小漣漪
-    if(Math.floor(t*2)!==Math.floor((t-dtFix())*2)) this.pool.addRipple(H.position.x,H.position.z,.22);
+    // 踢水小漣漪（強度跟主題走）
+    if(Math.floor(t*2)!==Math.floor((t-dtFix())*2)) this.pool.addRipple(H.position.x,H.position.z,.22*this.rippleAmp);
   }
   // 尾聲（12–14秒）：慢速謝幕旋轉 + 揭曉分數
   phaseFinale(t,H) {
@@ -408,6 +467,88 @@ class BalletAnimator {
   }
 }
 let _lastDt=1/60; function dtFix(){ return _lastDt; }
+
+/* ============================================================
+ * 圖片主題秀：上傳圖片 → Canvas 取樣分析 → 產生專屬演出主題
+ * 全本機運算（離線可用），無需上傳任何伺服器
+ * ============================================================ */
+function rgb2hex(r,g,b){
+  const c=v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');
+  return '#'+c(r)+c(g)+c(b);
+}
+function analyzeImage(img){
+  const S=96, c=document.createElement('canvas'); c.width=S; c.height=S;
+  const g=c.getContext('2d',{willReadFrequently:true});
+  // 中央正方形裁切後縮放取樣
+  const ir=img.width/img.height;
+  let sw,sh,sx,sy;
+  if(ir>1){ sh=img.height; sw=img.height; sx=(img.width-sw)/2; sy=0; }
+  else{ sw=img.width; sh=img.width; sx=0; sy=(img.height-sh)/2; }
+  g.drawImage(img,sx,sy,sw,sh,0,0,S,S);
+  const d=g.getImageData(0,0,S,S).data, n=S*S;
+  let rS=0,gS=0,bS=0,satS=0;
+  const bins=new Array(12).fill(0);
+  const binC=new Array(12).fill(null).map(()=>({r:0,g:0,b:0,n:0}));
+  for(let i=0;i<n;i++){
+    const r=d[i*4],gg=d[i*4+1],b=d[i*4+2];
+    rS+=r; gS+=gg; bS+=b;
+    const mx=Math.max(r,gg,b),mn=Math.min(r,gg,b);
+    const sat=mx===0?0:(mx-mn)/mx; satS+=sat;
+    let h=0;
+    if(mx!==mn){
+      const dl=mx-mn;
+      if(mx===r)h=((gg-b)/dl)%6; else if(mx===gg)h=(b-r)/dl+2; else h=(r-gg)/dl+4;
+      h*=60; if(h<0)h+=360;
+    }
+    const bin=Math.floor(h/30)%12;
+    bins[bin]+=sat+.15;
+    const bc=binC[bin]; bc.r+=r; bc.g+=gg; bc.b+=b; bc.n++;
+  }
+  // 動感＝相鄰像素差異（邊緣/紋理越多越動感）
+  let edgeS=0; const step=2;
+  for(let y=0;y<S;y+=step)for(let x=0;x<S;x+=step){
+    const a=(y*S+x)*4, bx=(y*S+Math.min(S-1,x+step))*4, cx=(Math.min(S-1,y+step)*S+x)*4;
+    edgeS+=Math.abs(d[a]-d[bx])+Math.abs(d[a+1]-d[bx+1])+Math.abs(d[a+2]-d[bx+2])
+          +Math.abs(d[a]-d[cx])+Math.abs(d[a+1]-d[cx+1])+Math.abs(d[a+2]-d[cx+2]);
+  }
+  const edgeN=(S/step)*(S/step)*6*255;
+  const bright=(rS*.2126+gS*.7152+bS*.0722)/n/255;
+  const pal=bins.map((w,i)=>({w,i})).sort((a,b)=>b.w-a.w).slice(0,5)
+    .filter(o=>binC[o.i].n>0)
+    .map(o=>{const bc=binC[o.i];return rgb2hex(bc.r/bc.n,bc.g/bc.n,bc.b/bc.n);});
+  const domHue=(bins.indexOf(Math.max(...bins)))*30+15;
+  return {
+    avg:rgb2hex(rS/n,gS/n,bS/n), pal,
+    bright:+bright.toFixed(3), sat:+(satS/n).toFixed(3),
+    energy:+Math.min(1,edgeS/edgeN*6).toFixed(3),
+    warm:+((rS-bS)/(rS+bS+1)).toFixed(3), domHue:Math.round(domHue)
+  };
+}
+const pct=v=>Math.round(v*100)+'%';
+const PRESETS={
+  ocean:  {name:'🌊 海洋狂歡秀', sky:'#9fd4ef', water:'#2fb3e8', sun:'#fff6e8', sunI:1.6, hippo:null,      spin:1.0, splash:1.15, ripple:1.0, desc:'預設・經典藍池'},
+  sunset: {name:'🌇 落日活力秀', sky:'#ff9e64', water:'#2f7fc9', sun:'#ffd9a0', sunI:1.9, hippo:'#9a8b95', spin:1.3, splash:1.3,  ripple:1.1, desc:'暖陽・快節奏旋轉'},
+  night:  {name:'🌙 星空夜潛秀', sky:'#0b1e3a', water:'#17456e', sun:'#9fd8ff', sunI:0.9, hippo:'#7d7488', spin:0.7, splash:0.85, ripple:0.7, desc:'夜潛・慢速優雅'},
+  sakura: {name:'💜 夢幻櫻花秀', sky:'#f3c6e0', water:'#3f9fd0', sun:'#ffe9f4', sunI:1.7, hippo:'#a08ba0', spin:1.1, splash:1.0,  ripple:0.9, desc:'粉調・柔美謝幕'},
+};
+function themeFromFeatures(f){
+  const H=f.domHue;
+  let base;
+  if(f.bright<0.32) base={...PRESETS.night};
+  else if(H<25||H>=340) base={...PRESETS.sunset};
+  else if(H<75) base={name:'🌾 金黃豐收秀', sky:'#ffe1a1', water:'#2fa3c9', sun:'#fff3d6', sunI:1.8, hippo:'#94879b', desc:'暖黃・豐收節奏'};
+  else if(H<165) base={name:'🌿 森林清新秀', sky:'#bfe8c9', water:'#1f8fa8', sun:'#f2ffe9', sunI:1.6, hippo:'#8d8296', desc:'綠意・清新漂浮'};
+  else if(H<255) base={...PRESETS.ocean};
+  else base={...PRESETS.sakura};
+  // 動感決定速度與水花（圖片越豐富、對比越高，演出越激烈）
+  base.spin=+((0.8+f.energy*1.1).toFixed(2));
+  base.splash=+((0.85+f.energy*0.9).toFixed(2));
+  base.ripple=+((0.6+f.energy*1.1).toFixed(2));
+  // 主水色優先用圖片代表色（太暗則 fallback）
+  if(f.bright>=0.32&&f.pal.length) base.water=f.pal[0];
+  base.desc+=`｜明亮${pct(f.bright)}・飽和${pct(f.sat)}・動感${pct(f.energy)}・${f.warm>=0?'暖':'冷'}調・主色${f.domHue}°`;
+  return base;
+}
 
 /* ============================================================
  * 主程式
@@ -452,6 +593,69 @@ const director=new BalletAnimator(hippo,pool,splash,ui);
 
 document.getElementById('btn-replay').addEventListener('click',()=>director.reset());
 document.getElementById('btn-camera').addEventListener('click',()=>{ camera.position.copy(CAM_HOME); controls.target.set(0,.4,-.5); });
+
+/* ---------- 主題套用＋圖片上傳接線 ---------- */
+const THEME_KEY='hg-hippo-theme';
+function applyTheme(t,save=true){
+  try{ scene.background.set(t.sky); scene.fog.color.set(t.sky); }catch(e){}
+  try{ sun.color.set(t.sun); sun.intensity=t.sunI; }catch(e){}
+  pool.setWater(t.water);
+  hippo.setTint(t.hippo||null);
+  director.spinMul=t.spin; director.splashPow=t.splash; director.rippleAmp=t.ripple;
+  document.getElementById('theme-name').textContent=t.name;
+  document.getElementById('theme-desc').textContent='水色・燈光・旋轉×'+t.spin+'・水花×'+t.splash+'｜'+(t.desc||'');
+  document.querySelectorAll('#preset-row button').forEach(b=>b.classList.toggle('on',b.dataset.p===t.preset));
+  if(save){ try{ localStorage.setItem(THEME_KEY,JSON.stringify(t)); }catch(e){} }
+}
+function showFeatures(f){
+  const sw=document.querySelectorAll('#palette span');
+  sw.forEach((s,i)=>{ s.style.background=f.pal[i]||'rgba(255,255,255,.12)'; });
+  document.getElementById('m-bright').style.width=pct(f.bright);
+  document.getElementById('m-sat').style.width=pct(f.sat);
+  document.getElementById('m-energy').style.width=pct(f.energy);
+  document.getElementById('m-warm').style.width=pct(Math.min(1,Math.max(0,(f.warm+1)/2)));
+}
+const order=['ocean','sunset','night','sakura'];
+let presetIdx=0;
+document.getElementById('btn-preset').addEventListener('click',()=>{
+  presetIdx=(presetIdx+1)%order.length;
+  const t={...PRESETS[order[presetIdx]],preset:order[presetIdx]};
+  applyTheme(t); director.reset();
+});
+document.querySelectorAll('#preset-row button').forEach(b=>b.addEventListener('click',()=>{
+  presetIdx=Math.max(0,order.indexOf(b.dataset.p));
+  const t={...PRESETS[b.dataset.p],preset:b.dataset.p};
+  applyTheme(t); director.reset();
+}));
+const fileInput=document.getElementById('file-input');
+document.getElementById('btn-upload').addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',()=>{
+  const f=fileInput.files&&fileInput.files[0]; if(!f) return;
+  const url=URL.createObjectURL(f);
+  const img=new Image();
+  img.onload=()=>{
+    try{
+      document.getElementById('photo-thumb').src=url;
+      const feat=analyzeImage(img);
+      showFeatures(feat);
+      const t={...themeFromFeatures(feat),preset:null};
+      t.name+='・你的圖片秀';
+      applyTheme(t); director.reset();
+    }catch(e){
+      document.getElementById('theme-desc').textContent='⚠️ 圖片分析失敗，維持原主題';
+    }
+    URL.revokeObjectURL(url);
+    fileInput.value='';
+  };
+  img.onerror=()=>{ document.getElementById('theme-desc').textContent='⚠️ 讀不到這張圖片，換一張試試'; };
+  img.src=url;
+});
+// 開場還原上次主題
+try{
+  const saved=JSON.parse(localStorage.getItem(THEME_KEY)||'null');
+  if(saved&&saved.sky) applyTheme(saved,false);
+  else applyTheme({...PRESETS.ocean,preset:'ocean'},false);
+}catch(e){ applyTheme({...PRESETS.ocean,preset:'ocean'},false); }
 
 function resize(){
   const stage=document.getElementById('stage');

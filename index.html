@@ -39,6 +39,8 @@
     <div class="pill">🏰 守塔最佳 <b id="b-tower">—</b></div>
     <div class="pill">🦛 河馬最佳 <b id="b-hippo">—</b></div>
     <div class="pill">🧛 倖存者最佳 <b id="b-survivor">—</b></div>
+    <div class="pill">🏯 華容道最佳 <b id="b-huarong">—</b></div>
+    <div class="pill">🏃 下樓梯最佳 <b id="b-fall">—</b></div>
   </div>
   <div id="grid">
     <div class="card">
@@ -66,6 +68,22 @@
       <a href="survivor.html">▶ 開始遊戲</a>
     </div>
     <div class="card">
+      <div class="icon">🏯</div>
+      <h2>華容道</h2>
+      <div class="en">Klotski・滑塊益智</div>
+      <div class="desc">拖動武將讓路，把曹操移到下方出口！12 經典棋譜＋追平最優拿三星。</div>
+      <div class="best" id="c-huarong"></div>
+      <a href="huarongdao.html">▶ 開始遊戲</a>
+    </div>
+    <div class="card">
+      <div class="icon">🏃</div>
+      <h2>小朋友下樓梯</h2>
+      <div class="en">Fall Down・NS-Shaft like</div>
+      <div class="desc">左右閃避一路往下跳！5 種地板＋血量＋加速，還記得電腦教室的味道嗎？</div>
+      <div class="best" id="c-fall"></div>
+      <a href="falldown.html">▶ 開始遊戲</a>
+    </div>
+    <div class="card">
       <div class="icon">🦛</div>
       <h2>河馬水中芭蕾</h2>
       <div class="en">3D Water Ballet</div>
@@ -75,7 +93,7 @@
     </div>
   </div>
   <footer>
-    最佳成績 key：<code>hg-angry-best</code>・<code>hg-tower-best</code>・<code>hg-survivor-best</code>・<code>hg-hippo-best</code><br>
+    最佳成績 key：<code>hg-angry-best</code>・<code>hg-tower-best</code>・<code>hg-survivor-best</code>・<code>hg-hippo-best</code>・<code>hg-huarong-bests</code>（每關最佳 JSON）・<code>hg-fall-best</code><br>
     架構參考：<a href="https://github.com/prateek121/90s-games">prateek121/90s-games</a>（單檔＋index 大廳＋localStorage）・
     <a href="https://github.com/ricardo-foundry/canvas-vampire-survivors">canvas-vampire-survivors</a>（倖存者玩法）
   </footer>
@@ -86,14 +104,23 @@ var ab=get('hg-angry-best'),al=get('hg-angry-level');
 var tb=get('hg-tower-best'),tw=get('hg-tower-wave');
 var hb=get('hg-hippo-best');
 var st=get('hg-survivor-best'),sk=get('hg-survivor-kills');
+var hrb=[];try{hrb=JSON.parse(get('hg-huarong-bests')||'null')||[];}catch(e){hrb=[];}
+if(!hrb.length){var hr0=+(get('hg-huarong-best')||0);if(hr0)hrb=[hr0];}
+var hrOK=hrb.filter(function(x){return x>0;});
+var hrMin=hrOK.length?Math.min.apply(null,hrOK):0;
+var fl=get('hg-fall-best');
 document.getElementById('b-angry').textContent=ab?ab+' 分':'—';
 document.getElementById('b-tower').textContent=tb?tb+' 分':'—';
 document.getElementById('b-hippo').textContent=hb?hb+' 分':'—';
 document.getElementById('b-survivor').textContent=st?Math.floor(st)+' 秒':'—';
+document.getElementById('b-huarong').textContent=hrOK.length?('已破 '+hrOK.length+'/12'):'—';
 document.getElementById('c-angry').textContent=ab?('🏆 最佳 '+ab+' 分'+(al?'・第'+al+'關':'')):'還沒留下紀錄，來當第一個！';
 document.getElementById('c-tower').textContent=tb?('🏆 總分 '+tb+(tw?'・守到第'+tw+'波':'')):'還沒留下紀錄，來當第一個！';
 document.getElementById('c-survivor').textContent=st?('🏆 存活 '+Math.floor(st)+' 秒'+(sk?'・'+sk+' 殺':'')):'還沒留下紀錄，來當第一個！';
 document.getElementById('c-hippo').textContent=hb?('🏆 評審給過 '+hb+' 分'):'還沒留下紀錄，來當第一個！';
+document.getElementById('c-huarong').textContent=hrOK.length?('🏆 已破 '+hrOK.length+'/12・最少 '+hrMin+' 步'):'還沒留下紀錄，來當第一個！';
+document.getElementById('b-fall').textContent=fl?('B'+fl):'—';
+document.getElementById('c-fall').textContent=fl?('🏆 下到 B'+fl):'還沒留下紀錄，來當第一個！';
 </script>
 </body>
 </html>
