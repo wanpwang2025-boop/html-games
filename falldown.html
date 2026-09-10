@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!--
+  小朋友下樓梯（Fall Down）— NS-Shaft like 致敬重製（本檔為重新實作，非複製貼上）
+  原創《NS-SHAFT》版權屬 NAGI-P SOFT（1996）
+  玩法數值參考：iPel/NS-SHAFT（Apache-2.0，https://github.com/iPel/NS-SHAFT）
+-->
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
@@ -24,6 +29,21 @@
   #card p{font-size:16px;color:#5b4a00;margin:4px 0;line-height:1.7}
   #card .row{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
   #tip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:12.5px;color:#fff;background:rgba(0,0,0,.5);padding:5px 16px;border-radius:999px;z-index:5;white-space:nowrap}
+  /* 榮譽榜（淺色卡片版） */
+  .board{margin:12px auto 4px;max-width:420px;background:rgba(58,34,0,.06);border:1px solid rgba(122,77,0,.25);border-radius:12px;padding:6px 14px;text-align:left}
+  .brow{display:flex;gap:10px;align-items:center;font-size:14px;font-weight:800;padding:6px 4px;border-bottom:1px dashed rgba(122,77,0,.25);color:#5b4a00}
+  .brow:last-child{border-bottom:none}
+  .brow.me{background:rgba(255,159,28,.18);border-radius:8px}
+  .brow .br{width:36px}.brow .bd{margin-left:auto;font-size:11.5px;color:#a07d2c;font-weight:400}
+  .linkbtn{background:none;border:none;color:#a07d2c;font-size:12px;margin-top:6px;text-decoration:underline;padding:4px}
+  .tabrow{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  .tabbtn{background:#fff;color:#5b4a00;border:1px solid #c9a44a;border-radius:999px;padding:7px 22px;font-size:14px}
+  .tabbtn.on{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200;border-color:transparent}
+  .uprow{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  #p-name{flex:1;max-width:220px;background:#fff;border:1px solid #c9a44a;border-radius:10px;color:#3a2200;font-size:15px;font-weight:700;padding:9px 12px;font-family:inherit;outline:none}
+  #b-upload{padding:9px 18px;font-size:14px}
+  #b-upload:disabled{opacity:.5}
+  #up-msg{font-size:12.5px;color:#7a4d00;min-height:18px;margin-top:6px}
 </style>
 </head>
 <body>
@@ -72,9 +92,19 @@ const sfx={
 };
 
 /* ---------- 存檔 ---------- */
-const KEY='hg-fall-best';
+const KEY='hg-fall-best',K_BOARD='hg-fall-board',K_NAME='hg-fall-name';
 let BEST=0;try{BEST=+(localStorage.getItem(KEY)||0);}catch(e){}
 function saveBest(v){if(v>BEST){BEST=v;try{localStorage.setItem(KEY,String(v));}catch(e){}}}
+function getBoard(){try{const b=JSON.parse(localStorage.getItem(K_BOARD)||'[]');return Array.isArray(b)?b:[];}catch(e){return[];}}
+function saveBoard(b){try{localStorage.setItem(K_BOARD,JSON.stringify(b.slice(0,10)));}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* ---------- 全球榜（Supabase，與倖存者同專案＋同一把 publishable key） ---------- */
+const SB_URL='https://qvcxnnfhppjyzlfguygf.supabase.co';
+const SB_KEY='sb_publishable_fHs9qysbwPYB-d5mRnmeUg_TRNhAxG8';
+function sbH(json){const h={apikey:SB_KEY,Authorization:'Bearer '+SB_KEY};if(json)h['Content-Type']='application/json';return h;}
+async function sbTop10(){const r=await fetch(SB_URL+'/rest/v1/fall_scores?select=name,depth&order=depth.desc&limit=10',{headers:sbH()});if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+async function sbUpload(o){const r=await fetch(SB_URL+'/rest/v1/fall_scores',{method:'POST',headers:{...sbH(true),Prefer:'return=representation'},body:JSON.stringify([{name:o.name,depth:o.d}])});if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
 
 /* ---------- 狀態 ---------- */
 let floors=[],hero=null,score=0,seq=0,over=false,started=false,paused=false;
@@ -121,10 +151,50 @@ function hurt(n){
   syncHud();
 }
 function die(msg){
-  over=true;saveBest(score);syncHud();sfx.die();
+  over=true;
+  let prev=0;try{prev=+(localStorage.getItem(KEY)||0);}catch(e){}
+  saveBest(score);syncHud();sfx.die();
   shake=.5;
+  const nb=score>prev&&score>0;
+  let board=getBoard();
+  const rec={d:score,dt:new Date().toLocaleDateString()};
+  board.push(rec);board.sort((a,b)=>b.d-a.d);board=board.slice(0,10);saveBoard(board);
+  const rank=board.indexOf(rec)+1;
+  let savedName='';try{savedName=localStorage.getItem(K_NAME)||'';}catch(e){}
+  const medal=['🥇','🥈','🥉'];
+  const localHtml='<div class="board">'+board.map((r,i)=>
+    `<div class="brow${r===rec?' me':''}"><span class="br">${medal[i]||('#'+(i+1))}</span><span>B${r.d}</span><span class="bd">${r.dt}</span></div>`
+  ).join('')+'</div>';
   $('c-title').textContent='💀 遊戲結束';
-  $('c-sub').innerHTML='下到 <b>B'+score+'</b> 層・'+msg+'<br>歷史最佳：'+(BEST?('B'+BEST):'—');
+  $('c-sub').innerHTML=`下到 <b>B${score}</b> 層・${msg}<br>`+
+    (nb?`🏆 <b>新紀錄！</b><br>`:(BEST>0?`歷史最佳 <b>B${BEST}</b><br>`:''))+
+    `本局榮譽榜第 <b>#${rank}</b> 名（共 ${board.length} 筆）`;
+  // 結算榜單（本機/全球頁籤＋上傳）
+  const div=document.createElement('div');div.id='board-wrap';
+  div.innerHTML=
+    `<div class="tabrow"><button class="tabbtn on" id="tab-local">📱 本機榜</button><button class="tabbtn" id="tab-global">🌍 全球榜</button></div>`+
+    `<div class="uprow"><input id="p-name" maxlength="12" placeholder="輸入名字上傳全球榜" value="${esc(savedName)}"><button class="btn-warning" id="b-upload">⬆ 上傳</button></div><div id="up-msg"></div>`+
+    `<div id="board-box">${localHtml}</div><button class="linkbtn" id="c-clear">清除本機榜</button>`;
+  const old=$('board-wrap');if(old)old.remove();
+  $('card').insertBefore(div,$('card').querySelector('.row'));
+  const box=$('board-box');
+  $('tab-local').onclick=()=>{$('tab-local').classList.add('on');$('tab-global').classList.remove('on');box.innerHTML=localHtml;};
+  $('tab-global').onclick=async()=>{$('tab-global').classList.add('on');$('tab-local').classList.remove('on');
+    box.innerHTML='<div style="font-size:13px;color:#7a4d00">🌍 讀取全球榜…</div>';
+    try{const g=await sbTop10();
+      box.innerHTML=g.length?'<div class="board">'+g.map((r,i)=>`<div class="brow"><span class="br">${medal[i]||('#'+(i+1))}</span><span>${esc(r.name)}</span><span>B${r.depth}</span></div>`).join('')+'</div>'
+        :'<div style="font-size:13px;color:#7a4d00">全球榜還是空的，你來當第一筆！</div>';
+    }catch(e){box.innerHTML='<div style="font-size:13px;color:#7a4d00">⚠️ 讀不到全球榜（SQL 表還沒建？看 README）</div>';}};
+  $('b-upload').onclick=async()=>{
+    const nm=$('p-name').value.trim().slice(0,12);
+    if(!nm){$('up-msg').textContent='先輸入名字再上傳！';return;}
+    try{localStorage.setItem(K_NAME,nm);}catch(e){}
+    $('up-msg').textContent='上傳中…';$('b-upload').disabled=true;
+    try{await sbUpload({name:nm,d:score});
+      $('up-msg').textContent='✅ 已上傳！切到全球榜看排名';$('tab-global').onclick();
+    }catch(e){$('up-msg').textContent='⚠️ 上傳失敗（SQL 表建了沒？看 README）';}
+    $('b-upload').disabled=false;};
+  $('c-clear').onclick=()=>{try{localStorage.removeItem(K_BOARD);}catch(e){}box.innerHTML='<div style="font-size:13px;color:#7a4d00">已清除，從零開始寫傳說！</div>';};
   $('c-retry').textContent='↻ 再來一局';$('c-go').textContent='挑戰下一局 ▶';
   $('panel').style.display='flex';
 }
@@ -471,7 +541,10 @@ $('c-go').onclick=()=>{
 
 /* ---------- 開場 ---------- */
 $('c-title').textContent='🏃 小朋友下樓梯';
-$('c-sub').innerHTML='左右移動，一路往下跳！落地回血＋1，釘板扣血，別被頂到天花板釘子，也別摔出底部。<br>歷史最佳：'+(BEST?('B'+BEST):'尚未挑戰')+'<br><span style="font-size:13px">← → / AD・手機按住左右半屏・R 重來・P 暫停</span>';
+const top3=getBoard().slice(0,3),medal3=['🥇','🥈','🥉'];
+$('c-sub').innerHTML='左右移動，一路往下跳！落地回血＋1，釘板扣血，別被頂到天花板釘子，也別摔出底部。<br>歷史最佳：'+(BEST?('B'+BEST):'尚未挑戰')+
+  (top3.length?'<div class="board">'+top3.map((r,i)=>`<div class="brow"><span class="br">${medal3[i]}</span><span>B${r.d}</span><span class="bd">${r.dt}</span></div>`).join('')+'</div>':'')+
+  '<br><span style="font-size:13px">← → / AD・手機按住左右半屏・R 重來・P 暫停・結算可上傳全球榜比拼</span>';
 $('c-retry').textContent='↻ 直接開始';$('c-go').textContent='開始挑戰 ▶';
 $('panel').style.display='flex';
 hero={x:SX+(SW-36)/2,y:H-220,w:36,h:44,vx:0,vy:0,face:1,on:null,landT:0,inv:0,life:MAX_LIFE};

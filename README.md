@@ -54,12 +54,33 @@ git add -A && git commit -m "說明" && git push
 ## 存檔 key（`localStorage`）
 
 `hg-angry-best`・`hg-angry-level`・`hg-tower-best`・`hg-tower-wave`・
-`hg-survivor-best`・`hg-survivor-kills`・`hg-survivor-board`（倖存者前 10 名榮譽榜）・`hg-survivor-name`（上傳用暱稱）・`hg-hippo-best`・`hg-hippo-theme`（河馬主題秀 JSON）・`hg-huarong-bests`（華容道每關最少步 JSON）・`hg-huarong-level`・`hg-fall-best`（下樓梯最深層數）
+`hg-survivor-best`・`hg-survivor-kills`・`hg-survivor-board`（倖存者前 10 名榮譽榜）・`hg-survivor-name`（上傳用暱稱）・`hg-hippo-best`・`hg-hippo-theme`（河馬主題秀 JSON）・`hg-huarong-bests`（華容道每關最少步 JSON）・`hg-huarong-level`・`hg-fall-best`（下樓梯最深層數）・`hg-fall-board`（下樓梯前 10 名本機榜）・`hg-fall-name`（上傳用暱稱）
 
 ## 全球榜（Supabase）
 
 倖存者結算可上傳到 Supabase `scores` 表（`time/kills/level/name`），RLS 只開公開讀＋寫入，
 外加 CHECK 擋亂填。前端用 publishable key 直連 REST，無後端程式。
+
+下樓梯全球榜用同一專案的 `fall_scores` 表，SQL Editor 貼上執行一次即可
+（沒建表也能玩，只是全球榜會顯示離線，本機榜不受影響）：
+
+```sql
+create table if not exists fall_scores (
+  id bigint generated always as identity primary key,
+  name text not null check (char_length(name) between 1 and 12),
+  depth int not null check (depth between 1 and 100000),
+  created_at timestamptz not null default now()
+);
+alter table fall_scores enable row level security;
+drop policy if exists "public read" on fall_scores;
+drop policy if exists "public insert" on fall_scores;
+create policy "public read" on fall_scores for select using (true);
+create policy "public insert" on fall_scores for insert with check (true);
+create index if not exists fall_scores_depth_idx on fall_scores (depth desc);
+```
+
+下樓梯結算面板：📱本機榜（前 10，開場秀前 3）＋ 🌍全球榜頁籤 ＋ 輸入暱稱上傳，
+直接把遊戲網址傳給朋友就能比拼。
 
 ## 參考的開源 repo
 
@@ -67,3 +88,5 @@ git add -A && git commit -m "說明" && git push
 - [ricardo-foundry/canvas-vampire-survivors](https://github.com/ricardo-foundry/canvas-vampire-survivors) — 零依賴倖存者，玩法參考
 - [Mihailazvfx/vampire-survivor-game](https://github.com/Mihailazvfx/vampire-survivor-game) — 單檔＋手機搖桿
 - [magejosh/one-page-games](https://github.com/magejosh/one-page-games) — 單頁遊戲合集＋Pages 範例
+- [iPel/NS-SHAFT](https://github.com/iPel/NS-SHAFT)（Apache-2.0）— 小朋友下樓梯重製；本專案 `falldown.html` 玩法數值（重力／地板種類／加速曲線）參考自它，原創 NS-SHAFT 版權屬 NAGI-P SOFT
+- [jeantimex/klotski](https://github.com/jeantimex/klotski)（MIT）— 40 局華容道棋譜＋求解器；本專案 `huarongdao.html` 12 關擺法取自它的 `hrd-games.json`
