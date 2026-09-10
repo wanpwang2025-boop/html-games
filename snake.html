@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<!--
+  貪食蛇・增強版（本檔為重新實作，非複製貼上）
+  玩法靈感：Esskay1945/Snek（4 模式＋道具概念，https://github.com/Esskay1945/Snek，無授權聲明僅參考概念）
+  道具/等級設計參考：Ian-Lusule/Advanced-snake-game（MIT，https://github.com/Ian-Lusule/Advanced-snake-game）
+-->
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>貪食蛇・增強版 | Snake Plus</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#0b1622;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden}
+  #app{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 700px at 50% 15%,#1b3a55 0%,#0b1622 70%)}
+  #stage{position:relative;aspect-ratio:16/9;width:min(100vw,177.78vh);max-height:100vh;border-radius:14px;overflow:hidden;box-shadow:0 20px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}
+  canvas{width:100%;height:100%;display:block;touch-action:none}
+  #hud{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:5;pointer-events:none}
+  .pill{background:rgba(8,20,32,.75);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800;white-space:nowrap}
+  .pill b{color:#ffd166}
+  #btns{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:6}
+  button{cursor:pointer;border:none;border-radius:10px;padding:8px 14px;font-size:14px;font-weight:800;font-family:inherit}
+  .btn-warning{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200}
+  .btn-ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)}
+  button:hover{filter:brightness(1.1)} button:active{transform:translateY(1px)}
+  #modebar{position:absolute;top:56px;left:10px;display:flex;gap:8px;z-index:6}
+  #modebar button{font-size:13px;padding:6px 12px}
+  #modebar button.on{background:linear-gradient(180deg,#7CFFB2,#22b8e6);color:#04222e;border:none}
+  #panel{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:10}
+  #card{background:linear-gradient(180deg,#fffdf4,#ffeec2);border-radius:18px;padding:30px 44px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);max-width:84%}
+  #card h2{font-size:34px;margin-bottom:6px}
+  #card p{font-size:16px;color:#5b4a00;margin:4px 0;line-height:1.7}
+  #card .row{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+  .board{margin:12px auto 4px;max-width:420px;background:rgba(58,34,0,.06);border:1px solid rgba(122,77,0,.25);border-radius:12px;padding:6px 14px;text-align:left}
+  .brow{display:flex;gap:10px;align-items:center;font-size:14px;font-weight:800;padding:6px 4px;border-bottom:1px dashed rgba(122,77,0,.25);color:#5b4a00}
+  .brow:last-child{border-bottom:none}
+  .brow.me{background:rgba(255,159,28,.18);border-radius:8px}
+  .brow .br{width:36px}.brow .bd{margin-left:auto;font-size:11.5px;color:#a07d2c;font-weight:400}
+  .linkbtn{background:none;border:none;color:#a07d2c;font-size:12px;margin-top:6px;text-decoration:underline;padding:4px}
+  #tip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:12.5px;color:#fff;background:rgba(0,0,0,.5);padding:5px 16px;border-radius:999px;z-index:5;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="hud">
+    <div class="pill">⭐ 分數 <b id="h-score">0</b></div>
+    <div class="pill">📶 等級 <b id="h-level">1</b></div>
+    <div class="pill">🐍 長度 <b id="h-len">4</b></div>
+    <div class="pill">🏆 最佳 <b id="h-best">—</b></div>
+  </div>
+  <div id="btns">
+    <button class="btn-ghost" id="b-pause">⏸ 暫停</button>
+    <button class="btn-warning" id="b-restart">↻ 重來</button>
+  </div>
+  <div id="modebar">
+    <button class="btn-ghost on" data-m="0">經典</button>
+    <button class="btn-ghost" data-m="1">穿牆</button>
+    <button class="btn-ghost" data-m="2">障礙</button>
+  </div>
+  <div id="panel"><div id="card">
+    <h2 id="c-title">🐍 貪食蛇・增強版</h2>
+    <p id="c-sub"></p>
+    <div class="row">
+      <button class="btn-ghost" style="color:#333;border-color:#999" id="c-retry">↻ 再來一局</button>
+      <button class="btn-warning" id="c-go">開始挑戰 ▶</button>
+    </div>
+  </div></div>
+  <div id="tip">方向鍵 / WASD・手機滑動轉彎・空白暫停・R 重來・1/2/3 切模式</div>
+</div></div>
+<script>
+"use strict";
+const W=1280,H=720,COLS=25,ROWS=25,CELL=24;
+const BX=340,BY=60; // 棋盤 600x600 置中偏右
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+
+/* ---------- 音效 ---------- */
+let AC=null;
+function beep(f,d=.1,type='triangle',v=.08,slide=0){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.setValueAtTime(f,AC.currentTime);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,f+slide),AC.currentTime+d);g.gain.value=v;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+const sfx={eat:()=>beep(520,.08,'square',.06,260),gold:()=>{[880,1174,1568].forEach((f,i)=>setTimeout(()=>beep(f,.1,'triangle',.08),i*70));},bad:()=>beep(200,.2,'sawtooth',.09,-120),pow:()=>beep(440,.14,'sine',.09,440),up:()=>{[523,659,784].forEach((f,i)=>setTimeout(()=>beep(f,.12,'triangle',.08),i*80));},die:()=>{[400,300,200,120].forEach((f,i)=>setTimeout(()=>beep(f,.18,'sawtooth',.08),i*120));},click:()=>beep(600,.06,'sine',.06)};
+
+/* ---------- 存檔 ---------- */
+const KEY='hg-snake-best',K_BOARD='hg-snake-board';
+let BEST=0;try{BEST=+(localStorage.getItem(KEY)||0);}catch(e){}
+function saveBest(v){if(v>BEST){BEST=v;try{localStorage.setItem(KEY,String(v));}catch(e){}}}
+function getBoard(){try{const b=JSON.parse(localStorage.getItem(K_BOARD)||'[]');return Array.isArray(b)?b:[];}catch(e){return[];}}
+function saveBoard(b){try{localStorage.setItem(K_BOARD,JSON.stringify(b.slice(0,10)));}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* ---------- 模式＋狀態 ---------- */
+const MODES=['經典','穿牆','障礙'];
+let mode=0,snake=[],dir={x:1,y:0},queue=[],foods=[],pows=[],obst=[];
+let score=0,level=1,over=false,started=false,paused=false,acc=0;
+let fx={boost:0,slow:0,shield:0,multi:0,inv:0},powT=0;
+let shake=0,floats=[],parts=[];
+const DIRS={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
+function interval(){return Math.max(.055,.135*Math.pow(.94,level-1)*(fx.boost>0?.62:1)*(fx.slow>0?1.55:1));}
+function freeCells(){
+  const occ=new Set(snake.map(s=>s.x+','+s.y));
+  foods.forEach(f=>occ.add(f.x+','+f.y));pows.forEach(p=>occ.add(p.x+','+p.y));obst.forEach(o=>occ.add(o.x+','+o.y));
+  const out=[];
+  for(let x=0;x<COLS;x++)for(let y=0;y<ROWS;y++)if(!occ.has(x+','+y))out.push({x,y});
+  return out;
+}
+function spawnFood(force){
+  const free=freeCells();if(!free.length)return;
+  const c=free[(Math.random()*free.length)|0];
+  let type='apple';
+  const r=Math.random();
+  if(force)type=force;
+  else if(r<.08)type='gold';else if(r<.18)type='rainbow';else if(r<.26)type='poison';
+  foods.push({...c,type,ph:Math.random()*6.28});
+}
+function spawnPow(){
+  if(pows.length)return;
+  const free=freeCells();if(!free.length)return;
+  const c=free[(Math.random()*free.length)|0];
+  const kinds=['boost','slow','shield','multi','shrink'];
+  pows.push({...c,kind:kinds[(Math.random()*kinds.length)|0],t:8});
+}
+function addObst(n){
+  const free=freeCells();
+  for(let i=0;i<n&&free.length;i++){
+    const k=(Math.random()*free.length)|0,p=free.splice(k,1)[0];
+    // 別把蛇頭封死：與頭保持曼哈頓距離>3
+    const hd=snake[0];
+    if(Math.abs(p.x-hd.x)+Math.abs(p.y-hd.y)<=3)continue;
+    obst.push(p);
+  }
+}
+function reset(m){
+  if(m!=null)mode=m;
+  snake=[{x:7,y:12},{x:6,y:12},{x:5,y:12},{x:4,y:12}];
+  dir={x:1,y:0};queue=[];foods=[];pows=[];obst=[];
+  score=0;level=1;acc=0;fx={boost:0,slow:0,shield:0,multi:0,inv:0};powT=6;
+  shake=0;floats=[];parts=[];
+  over=false;started=true;paused=false;
+  spawnFood('apple');
+  if(mode===2)addObst(6);
+  $('panel').style.display='none';$('b-pause').textContent='⏸ 暫停';
+  syncMode();syncHud();
+}
+function syncMode(){document.querySelectorAll('#modebar button').forEach(b=>b.classList.toggle('on',+b.dataset.m===mode));}
+function syncHud(){
+  $('h-score').textContent=score;
+  $('h-level').textContent=level;
+  $('h-len').textContent=snake.length;
+  $('h-best').textContent=BEST>0?BEST:'—';
+}
+function floatText(txt,x,y,col){floats.push({txt,x,y,col:col||'#ffd166',t:0});if(floats.length>6)floats.shift();}
+function burst(x,y,col,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*300,vy:(Math.random()-.5)*300,life:.4+Math.random()*.3,col,r:2+Math.random()*3});}
+function cellXY(c){return{x:BX+c.x*CELL,y:BY+c.y*CELL};}
+
+function step(){
+  if(queue.length)dir=queue.shift();
+  let nx=snake[0].x+dir.x,ny=snake[0].y+dir.y;
+  // 牆
+  if(mode===1){nx=(nx+COLS)%COLS;ny=(ny+ROWS)%ROWS;}
+  else if(nx<0||ny<0||nx>=COLS||ny>=ROWS)return die('撞牆了！');
+  const head={x:nx,y:ny};
+  // 障礙
+  if(obst.some(o=>o.x===nx&&o.y===ny)){
+    if(fx.shield>0||fx.inv>0){fx.shield=0;fx.inv=1.2;shake=.3;sfx.bad();burst(...Object.values(cellXY(head)),'#8fd6ff',10);}
+    else return die('撞上障礙物！');
+  }
+  // 自己
+  const bodyHit=snake.some((s,i)=>i>0&&s.x===nx&&s.y===ny);
+  if(bodyHit){
+    if(fx.shield>0||fx.inv>0){fx.shield=0;fx.inv=1.2;shake=.3;sfx.bad();}
+    else return die('咬到自己了！');
+  }
+  snake.unshift(head);
+  let grew=false;
+  // 食物
+  const fi=foods.findIndex(f=>f.x===nx&&f.y===ny);
+  if(fi>=0){
+    const f=foods.splice(fi,1)[0],p=cellXY(f);
+    const mult=fx.multi>0?2:1;
+    if(f.type==='apple'){score+=10*mult;grew=true;sfx.eat();burst(p.x+CELL/2,p.y+CELL/2,'#ff6b6b',8);floatText('+'+10*mult,p.x,p.y,'#ff6b6b');}
+    else if(f.type==='rainbow'){score+=30*mult;grew=true;sfx.eat();burst(p.x+CELL/2,p.y+CELL/2,'#7CFFB2',10);floatText('+'+30*mult,p.x,p.y,'#7CFFB2');}
+    else if(f.type==='gold'){score+=50*mult;grew=true;snake.push({...snake[snake.length-1]});sfx.gold();burst(p.x+CELL/2,p.y+CELL/2,'#ffd166',14);floatText('+'+50*mult,p.x,p.y,'#ffd166');}
+    else if(f.type==='poison'){score=Math.max(0,score-20);fx.slow=2.5;shake=.3;sfx.bad();burst(p.x+CELL/2,p.y+CELL/2,'#b565ff',10);floatText('-20 暈眩',p.x,p.y,'#b565ff');}
+    spawnFood();
+  }
+  // 道具
+  const pi=pows.findIndex(p=>p.x===nx&&p.y===ny);
+  if(pi>=0){
+    const p=pows.splice(pi,1)[0],q=cellXY(p);
+    sfx.pow();burst(q.x+CELL/2,q.y+CELL/2,'#8fd6ff',10);
+    const names={boost:'⚡加速5s',slow:'🐌減速5s',shield:'🛡護盾8s',multi:'✖2雙倍7s',shrink:'➖縮小'};
+    if(p.kind==='shrink'){snake.splice(Math.max(4,snake.length-4));}
+    else fx[p.kind]={boost:5,slow:5,shield:8,multi:7}[p.kind];
+    floatText(names[p.kind],q.x,q.y,'#8fd6ff');
+  }
+  if(!grew)snake.pop();
+  // 等級
+  const lv=Math.floor(score/150)+1;
+  if(lv>level){
+    level=lv;sfx.up();
+    floatText('Lv.'+level+' 加速！',BX+300,BY+200,'#7CFFB2');
+    if(mode===2)addObst(3);
+  }
+  syncHud();
+}
+function die(msg){
+  over=true;
+  let prev=0;try{prev=+(localStorage.getItem(KEY)||0);}catch(e){}
+  saveBest(score);sfx.die();shake=.5;
+  const isNew=score>prev&&score>0;
+  let board=getBoard();
+  const rec={s:score,m:MODES[mode],d:new Date().toLocaleDateString()};
+  board.push(rec);board.sort((a,b)=>b.s-a.s);board=board.slice(0,10);saveBoard(board);
+  const rank=board.indexOf(rec)+1;
+  const medal=['🥇','🥈','🥉'];
+  $('c-title').textContent='💀 遊戲結束';
+  $('c-sub').innerHTML=`【${MODES[mode]}】<b>${score}</b> 分・Lv.${level}・長度 ${snake.length}<br>${msg}`+
+    (isNew?`<br>🏆 <b>新紀錄！</b>`:(BEST>0?`<br>歷史最佳 <b>${BEST}</b>`:''))+
+    `<br>本局榮譽榜第 <b>#${rank}</b> 名`+
+    `<div class="board">`+board.map((r,i)=>
+      `<div class="brow${r===rec?' me':''}"><span class="br">${medal[i]||('#'+(i+1))}</span><span>${r.s} 分</span><span>${esc(r.m)}</span><span class="bd">${r.d}</span></div>`
+    ).join('')+`</div><button class="linkbtn" id="c-clear">清除本機榜</button>`;
+  const cb=$('c-clear');if(cb)cb.onclick=()=>{try{localStorage.removeItem(K_BOARD);}catch(e){}die_refresh();};
+  $('c-retry').textContent='↻ 再來一局';$('c-go').textContent='開始挑戰 ▶';
+  $('panel').style.display='flex';
+}
+function togglePause(){
+  if(!started||over)return;
+  paused=!paused;
+  $('b-pause').textContent=paused?'▶ 繼續':'⏸ 暫停';
+  sfx.click();
+}
+
+/* ---------- 更新 ---------- */
+function update(dt){
+  for(const k in fx)fx[k]=Math.max(0,fx[k]-dt);
+  powT-=dt;
+  if(powT<=0){spawnPow();powT=8+Math.random()*5;}
+  for(const p of pows)p.t-=dt;
+  pows=pows.filter(p=>p.t>0);
+  if(!foods.length)spawnFood(); // 自癒：場上永遠至少一顆食物
+  acc+=dt;
+  const iv=interval();
+  while(acc>=iv&&!over){acc-=iv;step();}
+  for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;}
+  parts=parts.filter(p=>p.life>0);
+  for(const f of floats){f.t+=dt;f.y-=30*dt;}
+  floats=floats.filter(f=>f.t<1);
+  shake=Math.max(0,shake-dt*1.6);
+}
+
+/* ---------- 繪圖 ---------- */
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function draw(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-.5)*shake*22,(Math.random()-.5)*shake*22);
+  ctx.fillStyle='#141428';ctx.fillRect(-30,-30,W+60,H+60);
+  // 左版
+  ctx.textAlign='left';
+  ctx.fillStyle='#7CFFB2';ctx.font='900 40px "Noto Sans TC",sans-serif';
+  ctx.fillText('🐍 貪食蛇',40,120);ctx.fillText('增強版',40,168);
+  ctx.fillStyle='#8fd6ff';ctx.font='16px "Noto Sans TC",sans-serif';
+  ctx.fillText('Snake Plus・3模式・5道具',40,196);
+  ctx.fillStyle='#cfe0ef';ctx.font='16px "Noto Sans TC",sans-serif';
+  const legend=['🍎 蘋果 +10','🌈 彩虹 +30','👑 金蘋果 +50','🍄 毒菇 -20＋暈眩','⚡加速 🐌減速 🛡護盾','✖2雙倍 ➖縮小身體','🧱 障礙模式會長出牆'];
+  legend.forEach((t,i)=>ctx.fillText(t,40,240+i*30));
+  ctx.fillStyle='#6b8aa3';ctx.font='14px sans-serif';
+  ctx.fillText('方向鍵/WASD・滑動轉彎',40,500);
+  ctx.fillText('空白暫停・R 重來・1/2/3 模式',40,524);
+  if(BEST>0){ctx.fillStyle='#ffe9a8';ctx.font='bold 17px sans-serif';ctx.fillText('🏆 最佳 '+BEST,40,566);}
+  // 右版
+  ctx.fillStyle='#ffd166';ctx.font='900 58px sans-serif';
+  ctx.fillText(String(score),1000,150);
+  ctx.fillStyle='#8fd6ff';ctx.font='17px "Noto Sans TC",sans-serif';
+  ctx.fillText('分數・'+MODES[mode],1000,180);
+  ctx.fillStyle='#cfe0ef';ctx.font='16px "Noto Sans TC",sans-serif';
+  ctx.fillText('等級 Lv.'+level+'（150分升）',1000,230);
+  ctx.fillText('長度 '+snake.length,1000,258);
+  // 效果倒數
+  let ey=300;
+  const effNames={boost:'⚡加速',slow:'🐌減速',shield:'🛡護盾',multi:'✖2雙倍'};
+  for(const k in effNames){
+    if(fx[k]>0){ctx.fillStyle=k==='slow'?'#8fd6ff':'#ffe9a8';ctx.fillText(effNames[k]+' '+fx[k].toFixed(1)+'s',1000,ey);ey+=28;}
+  }
+  ctx.fillStyle='#6b8aa3';ctx.font='14px sans-serif';
+  ctx.fillText('Single-file Canvas・免安裝',1000,640);
+  // 棋盤
+  ctx.fillStyle='#0a0f1c';rr(BX-10,BY-10,COLS*CELL+20,ROWS*CELL+20,14);ctx.fill();
+  ctx.fillStyle='#101b2c';ctx.fillRect(BX,BY,COLS*CELL,ROWS*CELL);
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  for(let x=0;x<=COLS;x++){ctx.beginPath();ctx.moveTo(BX+x*CELL,BY);ctx.lineTo(BX+x*CELL,BY+ROWS*CELL);ctx.stroke();}
+  for(let y=0;y<=ROWS;y++){ctx.beginPath();ctx.moveTo(BX,BY+y*CELL);ctx.lineTo(BX+COLS*CELL,BY+y*CELL);ctx.stroke();}
+  // 障礙
+  ctx.fillStyle='#3d4456';
+  for(const o of obst){const p=cellXY(o);rr(p.x+1,p.y+1,CELL-2,CELL-2,5);ctx.fill();}
+  // 食物
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const icons={apple:'🍎',rainbow:'🌈',gold:'👑',poison:'🍄'};
+  const t=performance.now()/400;
+  for(const f of foods){
+    const p=cellXY(f);
+    const sc=1+Math.sin(t+f.ph)*.12;
+    ctx.font=`${Math.round(CELL*sc)}px sans-serif`;
+    ctx.fillText(icons[f.type],p.x+CELL/2,p.y+CELL/2+1);
+  }
+  // 道具
+  const picons={boost:'⚡',slow:'🐌',shield:'🛡',multi:'✖2',shrink:'➖'};
+  for(const p of pows){
+    const q=cellXY(p);
+    if(p.t<2&&Math.floor(t*2)%2===0)continue; // 快消失閃爍
+    ctx.fillStyle='rgba(143,214,255,.2)';
+    ctx.beginPath();ctx.arc(q.x+CELL/2,q.y+CELL/2,CELL/2-1,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#8fd6ff';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';
+    ctx.fillText(picons[p.kind],q.x+CELL/2,q.y+CELL/2+1);
+  }
+  // 蛇
+  const blink=fx.inv>0&&Math.floor(fx.inv*12)%2===0;
+  snake.forEach((s,i)=>{
+    const p=cellXY(s);
+    if(i===0){
+      ctx.fillStyle=blink?'rgba(124,255,178,.35)':'#7CFFB2';
+      rr(p.x+1,p.y+1,CELL-2,CELL-2,7);ctx.fill();
+      // 眼睛看方向
+      ctx.fillStyle='#06251a';
+      const ex=dir.x*5,ey2=dir.y*5;
+      ctx.beginPath();ctx.arc(p.x+CELL/2-5+ex,p.y+CELL/2-3+ey2,2.6,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(p.x+CELL/2+5+ex,p.y+CELL/2-3+ey2,2.6,0,Math.PI*2);ctx.fill();
+      if(fx.shield>0){ctx.strokeStyle='rgba(143,214,255,.9)';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x+CELL/2,p.y+CELL/2,CELL/2+2,0,Math.PI*2);ctx.stroke();}
+    }else{
+      const r=i/snake.length;
+      ctx.fillStyle=blink?`rgba(34,184,230,${.35*(1-r)+.2})`:`rgb(${34+20*(1-r)|0},${184-40*r|0},${130-30*r|0})`;
+      rr(p.x+2,p.y+2,CELL-4,CELL-4,6);ctx.fill();
+    }
+  });
+  ctx.textBaseline='alphabetic';
+  // 粒子＋浮字
+  for(const p of parts){ctx.globalAlpha=Math.min(1,p.life*2.5);ctx.fillStyle=p.col;ctx.fillRect(p.x-p.r/2,p.y-p.r/2,p.r,p.r);}
+  ctx.globalAlpha=1;
+  ctx.textAlign='center';
+  for(const f of floats){
+    ctx.globalAlpha=Math.max(0,1-f.t);
+    ctx.fillStyle=f.col;ctx.font='900 22px "Noto Sans TC",sans-serif';
+    ctx.fillText(f.txt,f.x+CELL/2,f.y);
+  }
+  ctx.globalAlpha=1;
+  ctx.textAlign='left';
+  if(paused&&!over){
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='900 54px "Noto Sans TC",sans-serif';ctx.textAlign='center';
+    ctx.fillText('⏸ 暫停中',W/2,H/2);ctx.textAlign='left';
+  }
+  ctx.restore();
+  requestAnimationFrame(draw);
+}
+
+/* ---------- 主迴圈 ---------- */
+let last=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min(.05,(ts-last)/1000||0);last=ts;
+  if(!started||over||paused)return;
+  update(dt);
+}
+
+/* ---------- 輸入 ---------- */
+function pushDir(d){
+  const l=queue.length?queue[queue.length-1]:dir;
+  if(queue.length>=2)return;
+  if(l.x===-d.x&&l.y===-d.y)return; // 不回頭
+  if(l.x===d.x&&l.y===d.y)return;
+  queue.push(d);
+}
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='arrowup'||k==='w'){pushDir(DIRS.up);e.preventDefault();}
+  else if(k==='arrowdown'||k==='s'){pushDir(DIRS.down);e.preventDefault();}
+  else if(k==='arrowleft'||k==='a'){pushDir(DIRS.left);e.preventDefault();}
+  else if(k==='arrowright'||k==='d'){pushDir(DIRS.right);e.preventDefault();}
+  else if(k===' '){e.preventDefault();if(!started||over)reset();else togglePause();}
+  else if(k==='r')reset();
+  else if(k==='p'&&started&&!over)togglePause();
+  else if(k==='1')reset(0);else if(k==='2')reset(1);else if(k==='3')reset(2);
+});
+let swp=null;
+function evPos(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};}
+cv.addEventListener('pointerdown',e=>{
+  if(!started||over||paused)return;
+  try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();}catch(_){}
+  swp=evPos(e);
+  if(cv.setPointerCapture){try{cv.setPointerCapture(e.pointerId);}catch(_){}}
+});
+cv.addEventListener('pointermove',e=>{
+  if(!swp||!started||over||paused)return;
+  const p=evPos(e),dx=p.x-swp.x,dy=p.y-swp.y;
+  if(Math.abs(dx)<28&&Math.abs(dy)<28)return;
+  if(Math.abs(dx)>Math.abs(dy))pushDir(dx>0?DIRS.right:DIRS.left);
+  else pushDir(dy>0?DIRS.down:DIRS.up);
+  swp=p;
+});
+addEventListener('pointerup',()=>{swp=null;});
+$('b-pause').onclick=togglePause;
+$('b-restart').onclick=()=>{sfx.click();reset();};
+document.querySelectorAll('#modebar button').forEach(b=>b.onclick=()=>{sfx.click();reset(+b.dataset.m);});
+$('c-retry').onclick=()=>{sfx.click();reset();};
+$('c-go').onclick=()=>{
+  sfx.click();
+  reset(); // 開場和結算都從新局開始：保證有水果、蛇長度正確
+};
+// 清榜按鈕是結算時動態產生的，用事件委派
+document.addEventListener('click',e=>{
+  if(e.target&&e.target.id==='c-clear'){
+    try{localStorage.removeItem(K_BOARD);}catch(_){}
+    // 重畫榜：把 board 區換成空提示
+    const b=e.target.closest('#card').querySelector('.board');
+    if(b)b.innerHTML='<div class="brow"><span>已清除，從零開始寫傳說！</span></div>';
+  }
+});
+
+/* ---------- 開場 ---------- */
+$('c-title').textContent='🐍 貪食蛇・增強版';
+(function(){
+  const top3=getBoard().slice(0,3),medal3=['🥇','🥈','🥉'];
+  $('c-sub').innerHTML='3 種模式＋5 道具＋4 食物，150 分升一級越跑越快！<br>歷史最佳：'+(BEST?BEST+' 分':'尚未挑戰')+
+    (top3.length?'<div class="board">'+top3.map((r,i)=>`<div class="brow"><span class="br">${medal3[i]}</span><span>${r.s} 分</span><span>${esc(r.m)}</span><span class="bd">${r.d}</span></div>`).join('')+'</div>':'')+
+    '<br><span style="font-size:13px">方向鍵/WASD・手機滑動轉彎・毒菇別碰・護盾能擋一次</span>';
+})();
+$('c-retry').textContent='↻ 直接開始';$('c-go').textContent='開始挑戰 ▶';
+$('panel').style.display='flex';
+snake=[{x:7,y:12},{x:6,y:12},{x:5,y:12},{x:4,y:12}];
+syncMode();syncHud();
+requestAnimationFrame(draw);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

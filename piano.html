@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<!--
+  鋼琴塊（本檔為重新實作，非複製貼上）
+  簡譜陣列＋自動演奏概念靈感：Wscats/piano（https://github.com/Wscats/piano，無授權聲明僅參考概念）
+  MIDI 播放/錄製設計參考：Siilsy/Piano（MIT，https://github.com/Siilsy/Piano）
+-->
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>鋼琴塊 | Piano Tiles</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#0b1622;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden}
+  #app{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 700px at 50% 15%,#1b3a55 0%,#0b1622 70%)}
+  #stage{position:relative;aspect-ratio:16/9;width:min(100vw,177.78vh);max-height:100vh;border-radius:14px;overflow:hidden;box-shadow:0 20px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08)}
+  canvas{width:100%;height:100%;display:block;touch-action:none}
+  #hud{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:5;pointer-events:none}
+  .pill{background:rgba(8,20,32,.75);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800;white-space:nowrap}
+  .pill b{color:#ffd166}
+  #btns{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:6}
+  button{cursor:pointer;border:none;border-radius:10px;padding:8px 14px;font-size:14px;font-weight:800;font-family:inherit}
+  .btn-warning{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200}
+  .btn-ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)}
+  button:hover{filter:brightness(1.1)} button:active{transform:translateY(1px)}
+  #songbar{position:absolute;top:56px;left:10px;display:flex;gap:8px;z-index:11;align-items:center;flex-wrap:wrap;max-width:70%}
+  #songbar button,#song-sel{font-size:13px;padding:6px 12px}
+  #songbar button.on{background:linear-gradient(180deg,#c77dff,#7b2cbf);color:#fff;border:none}
+  #song-sel{font-family:inherit;font-weight:800;border-radius:10px;background:rgba(8,20,32,.88);color:#ffd166;border:1px solid rgba(255,209,102,.5);cursor:pointer;max-width:250px}
+  #song-sel option{color:#111;font-weight:400}
+  #panel{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:10}
+  #card{background:linear-gradient(180deg,#fffdf4,#ffeec2);border-radius:18px;padding:30px 44px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);max-width:84%}
+  #card h2{font-size:34px;margin-bottom:6px}
+  #card p{font-size:16px;color:#5b4a00;margin:4px 0;line-height:1.7}
+  #card .row{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+  #sheet{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:20}
+  #sheet-card{background:#fffdf4;border-radius:16px;padding:22px 26px;width:min(640px,92%);max-height:92%;overflow:auto;color:#3a2200}
+  #sheet-card h3{font-size:20px;margin-bottom:4px}
+  #sheet-card p{font-size:13px;color:#7a5b16;line-height:1.7;margin:4px 0}
+  #sheet-card code{background:rgba(58,34,0,.08);border-radius:6px;padding:1px 6px;font-size:12.5px}
+  #sheet-text{width:100%;height:110px;font-family:monospace;font-size:13px;border:1px solid #c9a44a;border-radius:10px;padding:10px;margin-top:8px;resize:vertical}
+  #sheet-card .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  #sheet-card .row button{font-size:13px}
+  .recrow{display:flex;gap:8px;align-items:center;background:rgba(58,34,0,.05);border-radius:10px;padding:6px 10px;margin-top:6px;font-size:13.5px;font-weight:700}
+  .recrow button{font-size:12px;padding:5px 10px}
+  #tip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:12.5px;color:#fff;background:rgba(0,0,0,.5);padding:5px 16px;border-radius:999px;z-index:5;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="hud">
+    <div class="pill">🎵 <span id="h-song">小星星</span></div>
+    <div class="pill">⭐ 分數 <b id="h-score">0</b></div>
+    <div class="pill">🔥 連擊 <b id="h-combo">0</b></div>
+    <div class="pill">🏆 最佳 <b id="h-best">—</b></div>
+  </div>
+  <div id="btns">
+    <button class="btn-ghost" id="b-pause">⏸ 暫停</button>
+    <button class="btn-warning" id="b-restart">↻ 重來</button>
+  </div>
+  <div id="songbar">
+    <select id="song-sel"></select>
+    <select id="spd-sel" title="掉落速度">
+      <option value="0.7">🐢 慢速</option>
+      <option value="1">▶ 標準</option>
+      <option value="1.3">🐇 快速</option>
+    </select>
+    <button class="btn-warning on" id="m-play">🎹 演奏</button>
+    <button class="btn-ghost" id="m-auto">🤖 自動</button>
+    <button class="btn-ghost" id="m-studio">● 錄音室</button>
+    <button class="btn-ghost" id="b-sheet">📂 曲譜/錄音</button>
+  </div>
+  <div id="panel"><div id="card">
+    <h2 id="c-title">🎹 鋼琴塊</h2>
+    <p id="c-sub"></p>
+    <div class="row">
+      <button class="btn-ghost" style="color:#333;border-color:#999" id="c-retry">↻ 再來一局</button>
+      <button class="btn-warning" id="c-go">開始挑戰 ▶</button>
+    </div>
+  </div></div>
+  <div id="sheet"><div id="sheet-card">
+    <h3>📂 曲譜上傳・錄音管理</h3>
+    <p><b>簡譜格式</b>：數字 <code>1~7</code>（<code>+</code>高八度/<code>-</code>低八度），<code>0</code>休止，<code>-</code>延長，<code>|</code>分小節忽略。例：<code>1 1 5 5 6 6 5 -</code></p>
+    <textarea id="sheet-text" placeholder="在這裡貼上簡譜…"></textarea>
+    <div class="row">
+      <button class="btn-warning" id="b-load-sheet">載入簡譜</button>
+      <button class="btn-ghost" style="color:#333;border-color:#999" id="b-sample">填入範例</button>
+      <button class="btn-ghost" style="color:#333;border-color:#999" id="b-midi">上傳 MIDI (.mid)</button>
+      <button class="btn-ghost" style="color:#333;border-color:#999" id="b-close">關閉</button>
+    </div>
+    <input type="file" id="file-midi" accept=".mid,.midi" style="display:none">
+    <p style="margin-top:10px"><b>我的錄音</b>（錄音室錄完會出現在這＋歌曲選單，可挑戰/匯出簡譜）</p>
+    <div id="rec-list"></div>
+  </div></div>
+  <div id="tip">手機直接點掉下來的方塊・太快就切左上 🐢慢速・想自由彈按 ●錄音室</div>
+</div></div>
+<script>
+"use strict";
+/* ---------- 版面常量 ---------- */
+const W=1280,H=720,LANES=4,PX=400,PW=480,LW=PW/LANES,HY=600,PPS=430;
+const LEAD=2.0; // 開場前奏秒數：第一顆方塊從螢幕外滑進來，玩家來得及就位
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+const LANE_COLS=[['#c77dff','#7b2cbf'],['#4cc9f0','#2a7fbf'],['#7CFFB2','#1d9e6c'],['#ffd166','#c98f1b']];
+const LANE_KEYS=['d','f','j','k'];
+const STUDIO_KEYS=['a','s','d','f','j','k','l',';']; // C4..C5
+const STUDIO_NAMES=['Do','Re','Mi','Fa','Sol','La','Si','Do⁺'];
+
+/* ---------- 音效：鋼琴味合成 ---------- */
+let AC=null;
+function piano(midi,when=0,dur=1.5,v=.22){
+  try{
+    AC=AC||new(window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended')AC.resume();
+    const t0=AC.currentTime+when,f=440*Math.pow(2,(midi-69)/12);
+    const g=AC.createGain();
+    g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(v,t0+.008);
+    g.gain.exponentialRampToValueAtTime(.001,t0+dur);
+    [[1,1],[2,.32],[3,.13],[4,.06]].forEach(([m,a])=>{
+      const o=AC.createOscillator();o.type='sine';o.frequency.value=f*m;
+      const og=AC.createGain();og.gain.value=a;
+      o.connect(og);og.connect(g);o.start(t0);o.stop(t0+dur+.05);
+    });
+    g.connect(AC.destination);
+  }catch(e){}
+}
+function beep(f,d=.1){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type='sine';o.frequency.value=f;g.gain.value=.08;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+
+/* ---------- 存檔 ---------- */
+const K_BEST='hg-piano-best',K_SONGS='hg-piano-songs',K_RECS='hg-piano-recs',K_SPD='hg-piano-speed';
+let SPD=0.7;
+try{const s=+localStorage.getItem(K_SPD);if([0.7,1,1.3].includes(s))SPD=s;}catch(e){}
+let BEST=0;try{BEST=+(localStorage.getItem(K_BEST)||0);}catch(e){}
+function saveBest(v){if(v>BEST){BEST=v;try{localStorage.setItem(K_BEST,String(v));}catch(e){}}}
+function loadJSON(k){try{const v=JSON.parse(localStorage.getItem(k)||'null');return Array.isArray(v)?v:[];}catch(e){return[];}}
+function saveJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* ---------- 簡譜解析 ---------- */
+const DEG={1:0,2:2,3:4,4:5,5:7,6:9,7:11};
+function parseJian(str,bpm){
+  const toks=str.replace(/\|/g,' ').replace(/，|、/g,' ').trim().split(/\s+/);
+  const notes=[];let t=0;const beat=60/bpm;let last=null;
+  for(const tk of toks){
+    if(!tk)continue;
+    if(/^-+$/.test(tk)){if(last)last.len+=tk.length;t+=tk.length*beat;continue;}
+    const m=tk.match(/^([+-]?)([0-7])(-*)$/);
+    if(!m)continue;
+    const oct=m[1]==='+'?1:m[1]==='-'?-1:0,deg=+m[2],dash=m[3].length;
+    if(deg===0){t+=(1+dash)*beat;last=null;continue;}
+    const n={t,midi:60+DEG[deg]+oct*12,len:1+dash};
+    notes.push(n);last=n;t+=n.len*beat;
+  }
+  return notes;
+}
+const BUILT_IN=[
+ {name:'小星星',bpm:96,jian:'1 1 5 5 6 6 5 - 4 4 3 3 2 2 1 - 5 5 4 4 3 3 2 - 5 5 4 4 3 3 2 - 1 1 5 5 6 6 5 - 4 4 3 3 2 2 1 - -'},
+ {name:'生日快樂',bpm:100,jian:'0 0 5 5 6 5 1 - 0 0 5 5 6 5 2 - 0 0 5 5 +1 3 1 7 6 - 0 0 4 4 3 1 2 1 - -'},
+ {name:'兩隻老虎',bpm:104,jian:'1 2 3 1 1 2 3 1 3 4 5 - 3 4 5 - 5 6 5 4 3 1 - 5 6 5 4 3 1 - 2 5 1 - 2 5 1 -'},
+ {name:'音階練習曲',bpm:120,jian:'1 2 3 4 5 6 7 +1 +2 +1 7 6 5 4 3 2 1 - -'},
+];
+
+/* ---------- 音符→方塊（含和弦分軌） ---------- */
+function notesToTiles(notes){
+  const sorted=[...notes].sort((a,b)=>a.t-b.t);
+  const tiles=[];let prevLane=1,prevMidi=60;
+  let i=0;
+  while(i<sorted.length){
+    const grp=[sorted[i]];
+    while(i+grp.length<sorted.length&&sorted[i+grp.length].t-grp[0].t<0.035)grp.push(sorted[i+grp.length]);
+    i+=grp.length;
+    grp.sort((a,b)=>a.midi-b.midi);
+    if(grp.length===1){
+      const n=grp[0],d=n.midi-prevMidi;
+      let lane=d>0?Math.min(3,prevLane+1):d<0?Math.max(0,prevLane-1):(prevLane+2)%4;
+      tiles.push({t:n.t,midi:n.midi,len:n.len||1,lane,hit:false,sounded:false,done:false});
+      prevLane=lane;prevMidi=n.midi;
+    }else{
+      const pref=[1,2,0,3];
+      grp.slice(0,4).forEach((n,k)=>{
+        tiles.push({t:n.t,midi:n.midi,len:n.len||1,lane:pref[k],hit:false,sounded:false,done:false});
+        prevLane=pref[k];prevMidi=n.midi;
+      });
+    }
+  }
+  return tiles;
+}
+
+/* ---------- 最小 MIDI 解析（SMF type0/1，取旋律＋和弦） ---------- */
+function parseMidi(buf){
+  const dv=new DataView(buf);let p=0;
+  const rs=n=>{let r='';for(let i=0;i<n;i++)r+=String.fromCharCode(dv.getUint8(p++));return r;};
+  const vlq=()=>{let v=0,b;do{b=dv.getUint8(p++);v=(v<<7)|(b&0x7f);}while(b&0x80);return v;};
+  try{
+    if(rs(4)!=='MThd')return{err:'不是 MIDI 檔（缺 MThd）'};
+    const hlen=dv.getUint32(p);p+=4;
+    dv.getUint16(p);p+=2;const ntrk=dv.getUint16(p);p+=2,div=dv.getUint16(p);p+=2;
+    p+=Math.max(0,hlen-6);
+    if(div&0x8000)return{err:'不支援 SMPTE 時間碼'};
+    const ppq=div,tempos=[],ons=[],open=new Map();
+    const t2s=tick=>{
+      let sec=0,last=0,mpq=500000;
+      for(const tp of tempos){if(tp.tick>tick)break;sec+=(tp.tick-last)*mpq/1e6/ppq;last=tp.tick;mpq=tp.mpq;}
+      return sec+(tick-last)*mpq/1e6/ppq;
+    };
+    for(let tr=0;tr<ntrk;tr++){
+      if(p+8>dv.byteLength||rs(4)!=='MTrk')break;
+      const len=dv.getUint32(p);p+=4,end=Math.min(p+len,dv.byteLength);
+      let tick=0,status=0;
+      while(p<end){
+        tick+=vlq();
+        let st=dv.getUint8(p);
+        if(st<0x80){st=status;}else{p++;if(st<0xF0)status=st;}
+        if(st===0xFF){const type=dv.getUint8(p++),ln=vlq();
+          if(type===0x51&&ln===3)tempos.push({tick,mpq:(dv.getUint8(p)<<16)|(dv.getUint8(p+1)<<8)|dv.getUint8(p+2)});
+          p+=ln;continue;}
+        if(st===0xF0||st===0xF7){p+=vlq();continue;}
+        const cmd=st&0xF0,ch=st&0x0F;
+        if(cmd===0x90||cmd===0x80){
+          if(p+2>end)break;
+          const n=dv.getUint8(p++),v=dv.getUint8(p++);
+          const key=ch*128+n;
+          if(cmd===0x90&&v>0&&ch!==9){if(!open.has(key))open.set(key,[]);open.get(key).push(tick);}
+          else if(open.has(key)&&open.get(key).length){
+            const ot=open.get(key).shift();
+            ons.push({tick:ot,midi:n});
+          }
+        }
+        else if(cmd===0xA0||cmd===0xB0||cmd===0xE0){p+=2;}
+        else if(cmd===0xC0||cmd===0xD0){p+=1;}
+        else break;
+      }
+    }
+    tempos.sort((a,b)=>a.tick-b.tick);
+    let notes=ons.filter(o=>o.midi>=21&&o.midi<=108)
+      .map(o=>({t:t2s(o.tick),midi:o.midi,len:1}))
+      .sort((a,b)=>a.t-b.t);
+    // 太密的音符疏掉（保留和弦）
+    const out=[];
+    for(const n of notes){
+      const l=out[out.length-1];
+      if(!l){out.push(n);continue;}
+      const gap=n.t-l.t;
+      if(gap<0.035)out.push(n); // 和弦
+      else if(gap<0.14){/* 太密跳過 */}
+      else out.push(n);
+      if(out.length>=1500)break;
+    }
+    if(!out.length)return{err:'這個 MIDI 抓不到音符（可能是純鼓組）'};
+    return{notes:out};
+  }catch(e){return{err:'解析失敗：檔案可能損壞'};}
+}
+
+/* ---------- 歌曲清單 ---------- */
+let songList=[]; // {kind:'in'|'custom'|'rec'|'midi', name, notes|rec}
+function refreshSongs(keepSel){
+  const customs=loadJSON(K_SONGS),recs=loadJSON(K_RECS);
+  songList=[
+    ...BUILT_IN.map((s,i)=>({kind:'in',idx:i,name:'🎵 '+s.name,notes:null})),
+    ...customs.map((s,i)=>({kind:'custom',idx:i,name:'📄 '+s.name,notes:s.notes})),
+    ...recs.map((s,i)=>({kind:'rec',idx:i,name:'🎙 '+s.name+'（錄音）',notes:s.notes})),
+  ];
+  const sel=$('song-sel'),cur=keepSel!=null?keepSel:sel.value;
+  sel.innerHTML='';
+  songList.forEach((s,i)=>{const o=document.createElement('option');o.value=i;o.textContent=s.name+'・'+sTileCount(i)+'鍵';sel.appendChild(o);});
+  sel.value=(cur!=null&&songList[+cur])?cur:0;
+}
+function sTileCount(i){
+  const s=songList[i];if(!s)return 0;
+  if(s.kind==='in'){const b=BUILT_IN[s.idx];return parseJian(b.jian,b.bpm).length;}
+  return s.notes.length;
+}
+function curNotes(){
+  const s=songList[+$('song-sel').value||0]||songList[0];
+  if(!s)return{title:'小星星',notes:parseJian(BUILT_IN[0].jian,BUILT_IN[0].bpm)};
+  if(s.kind==='in'){const b=BUILT_IN[s.idx];return{title:b.name,notes:parseJian(b.jian,b.bpm)};}
+  if(s.kind==='custom'){const c=loadJSON(K_SONGS)[s.idx];return{title:c.name,notes:c.notes};}
+  const r=loadJSON(K_RECS)[s.idx];return{title:r.name,notes:r.notes};
+}
+
+/* ---------- 遊戲狀態 ---------- */
+let mMode='play',tiles=[],songT=0,songDur=0,songTitle='';
+let score=0,combo=0,maxCombo=0,perfect=0,good=0,missed=0;
+let over=false,started=false,paused=false,finished=false;
+let floats=[],parts=[],laneFlash=[0,0,0,0],flashT=0;
+/* 錄音室 */
+let recOn=false,recNotes=[],recT0=0,recFlash=[];
+function loadSong(){
+  const{title,notes}=curNotes();
+  songTitle=title;
+  tiles=notesToTiles(notes);
+  songDur=tiles.length?tiles[tiles.length-1].t+1.5:0;
+  songT=-LEAD;score=0;combo=0;maxCombo=0;perfect=0;good=0;missed=0;
+  flashT=0;
+  over=false;finished=false;floats=[];parts=[];
+  tiles.forEach(t=>t.hit=false);
+  $('h-song').textContent=title.length>8?title.slice(0,8)+'…':title;
+  syncHud();
+}
+function reset(){
+  loadSong();
+  started=true;paused=false;over=false;
+  floatText2('準備…');
+  $('panel').style.display='none';$('b-pause').textContent='⏸ 暫停';
+  syncMode();syncHud();
+}
+function syncMode(){
+  $('m-play').classList.toggle('on',mMode==='play');
+  $('m-auto').classList.toggle('on',mMode==='auto');
+  $('m-studio').classList.toggle('on',mMode==='studio');
+  $('m-studio').textContent=recOn?'⏹ 停止並儲存':'● 錄音室';
+  $('tip').textContent=mMode==='studio'
+    ?'錄音室：按 A S D F J K L ; 彈（Do~Do⁺），再按一次 ● 存檔・會變成可挑戰關卡'
+    :'D F J K 對應四軌・手機直接點方塊・漏按/按錯即結束・錄音室用 A S D F J K L ; 彈';
+}
+function syncHud(){
+  $('h-score').textContent=score;
+  $('h-combo').textContent=combo;
+  $('h-best').textContent=BEST>0?BEST:'—';
+}
+function floatText(txt,x,col){floats.push({txt,x,col:col||'#ffd166',t:0});if(floats.length>6)floats.shift();}
+function setMode(m){
+  if(mMode==='studio'&&recOn&&m!=='studio')stopRec(true); // 離開錄音室自動存檔，不弄丟 take
+  mMode=m;recOn=false;recNotes=[];
+  if(m==='studio'){started=true;over=false;paused=false;tiles=[];songT=0;$('panel').style.display='none';}
+  else reset();
+  syncMode();beep(600,.06);
+}
+function hitTile(t,auto){
+  t.hit=true;t.done=true;
+  const dt=Math.abs(songT-t.t);
+  const pf=dt<0.08;
+  if(pf)perfect++;else good++;
+  combo++;maxCombo=Math.max(maxCombo,combo);
+  score+=100+Math.min(200,combo*2);
+  piano(t.midi);
+  laneFlash[t.lane]=.25;
+  const x=PX+t.lane*LW+LW/2;
+  burst(x,HY,LANE_COLS[t.lane][0],pf?10:6);
+  if(combo>0&&combo%25===0)floatText(combo+' 連擊！',x,'#ffd166');
+  syncHud();
+}
+/* 失誤：只斷連擊、不扣分（無死亡） */
+function registerMiss(msg){
+  if(mMode==='auto'||over)return;
+  combo=0;flashT=.35;beep(180,.15);
+  floatText(msg||'Miss',PX+PW/2,'#e63946');
+  syncHud();
+}
+function miss(reason){
+  if(over)return; // reason 只會是 'done'（全曲結束）
+  const total=perfect+good+missed,acc=total?Math.round((perfect+good*0.6)/total*100):100;
+  const rank=acc>=95?'S':acc>=85?'A':acc>=70?'B':'C';
+  $('c-title').textContent='🎉 演奏完成！';
+  $('c-sub').innerHTML=`【${esc(songTitle)}】${score} 分・最大連擊 ${maxCombo}・準確率 ${acc}%・評價 <b>${rank}</b><br>Perfect ${perfect}・Good ${good}`+
+    (score>=BEST&&score>0?'<br>🏆 <b>新紀錄！</b>':(BEST>0?`<br>歷史最佳 <b>${BEST}</b>`:''));
+  $('c-retry').textContent='↻ 再來一局';$('c-go').textContent='開始挑戰 ▶';
+  $('panel').style.display='flex';
+}
+function tapLane(lane){
+  if(!started||over||paused||mMode==='studio')return;
+  if(mMode==='auto')return;
+  laneFlash[lane]=.15;
+  let best=null,bestDt=9;
+  for(const t of tiles){
+    if(t.hit||t.lane!==lane)continue;
+    const d=Math.abs(songT-t.t);
+    if(d<bestDt){bestDt=d;best=t;}
+    if(t.t-songT>0.2)break;
+  }
+  if(best&&bestDt<=0.18)hitTile(best,false);
+  else{missed++;registerMiss('按錯了！');}
+}
+function burst(x,y,col,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*260,vy:-Math.random()*260-40,life:.35+Math.random()*.3,col,r:2+Math.random()*3});}
+
+/* ---------- 更新 ---------- */
+function update(dt){
+  if(mMode==='studio')return;
+  songT+=dt;
+  // 沒打到的方塊：到線自動小聲播（整首聽得到），過線0.35秒還沒打才扣命
+  for(const t of tiles){
+    if(t.done)continue;
+    if(t.t-songT>0.05)break;
+    if(t.hit)continue;
+    if(mMode==='auto'){songT=Math.max(songT,t.t);hitTile(t,true);continue;}
+    if(!t.sounded&&songT>=t.t){t.sounded=true;piano(t.midi,0,1.0,.10);}
+    if(songT-t.t>0.35){t.done=true;missed++;registerMiss('漏拍！');}
+    else break;
+  }
+  if(!over&&tiles.length&&tiles.every(t=>t.done)){miss('done');return;}
+  flashT=Math.max(0,flashT-dt);
+  for(let i=0;i<4;i++)laneFlash[i]=Math.max(0,laneFlash[i]-dt);
+  for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;}
+  parts=parts.filter(p=>p.life>0);
+  for(const f of floats)f.t+=dt;
+  floats=floats.filter(f=>f.t<1);
+}
+
+/* ---------- 繪圖 ---------- */
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function draw(){
+  ctx.fillStyle='#141428';ctx.fillRect(0,0,W,H);
+  // 左版：曲目＋說明
+  ctx.textAlign='left';
+  ctx.fillStyle='#c77dff';ctx.font='900 40px "Noto Sans TC",sans-serif';
+  ctx.fillText('🎹 鋼琴塊',40,120);
+  ctx.fillStyle='#8fd6ff';ctx.font='16px "Noto Sans TC",sans-serif';
+  ctx.fillText('Piano Tiles・演奏/自動/錄音',40,150);
+  ctx.fillStyle='#cfe0ef';ctx.font='15px "Noto Sans TC",sans-serif';
+  const cur=songList[+$('song-sel').value||0];
+  ctx.fillText('本曲：'+(cur?cur.name.replace(/^[🎵📄🎙] /,''):'—'),40,190);
+  ctx.fillText('鍵數：'+tiles.length,40,214);
+  ctx.fillStyle='#6b8aa3';ctx.font='14px sans-serif';
+  const help=['D F J K 打四軌','漏按/按錯即結束','🤖自動＝示範演奏','●錄音室：A~; 彈八音','錄完變可挑戰關卡','📂可貼簡譜/傳MIDI'];
+  help.forEach((t,i)=>ctx.fillText(t,40,250+i*26));
+  if(BEST>0){ctx.fillStyle='#ffe9a8';ctx.font='bold 16px sans-serif';ctx.fillText('🏆 最佳 '+BEST,40,440);}
+  // 右版：分數＋判定
+  ctx.fillStyle='#ffd166';ctx.font='900 54px sans-serif';
+  ctx.fillText(String(score),1060,150);
+  ctx.fillStyle='#8fd6ff';ctx.font='17px "Noto Sans TC",sans-serif';
+  ctx.fillText('分數',1060,180);
+  ctx.fillStyle=combo>=25?'#ffd166':'#cfe0ef';ctx.font='900 40px sans-serif';
+  ctx.fillText(combo+' 連擊',1060,260);
+  ctx.fillStyle='#cfe0ef';ctx.font='15px sans-serif';
+  ctx.fillText('Perfect '+perfect,1060,300);
+  ctx.fillText('Good '+good,1060,324);
+  ctx.fillText('Miss '+missed,1060,348);
+  // 演奏區底
+  ctx.fillStyle='#0a0f1c';rr(PX-12,20,PW+24,H-40,16);ctx.fill();
+  for(let l=0;l<4;l++){
+    ctx.fillStyle=l%2?'rgba(255,255,255,.025)':'rgba(255,255,255,.06)';
+    ctx.fillRect(PX+l*LW,24,LW,H-48);
+    if(l>0){ctx.strokeStyle='rgba(255,255,255,.09)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(PX+l*LW,24);ctx.lineTo(PX+l*LW,H-24);ctx.stroke();}
+  }
+  // 方塊
+  const tnow=songT;
+  for(const t of tiles){
+    if(t.hit)continue;
+    const y=HY-(t.t-tnow)*PPS*SPD;
+    const len=Math.max(64,(t.len||1)*90);
+    if(y+len<20||y>H)continue;
+    const x=PX+t.lane*LW+8,w=LW-16;
+    const g=ctx.createLinearGradient(x,0,x+w,0);
+    g.addColorStop(0,LANE_COLS[t.lane][0]);g.addColorStop(1,LANE_COLS[t.lane][1]);
+    ctx.fillStyle=g;rr(x,y-len+64,w,len,10);ctx.fill();
+    if(laneFlash[t.lane]>0){ctx.fillStyle='rgba(255,255,255,.5)';rr(x,y-len+64,w,len,10);ctx.fill();}
+  }
+  // 打擊線＋軌提示
+  ctx.fillStyle='rgba(255,209,102,.9)';ctx.fillRect(PX,HY,PW,4);
+  ctx.textAlign='center';ctx.font='bold 15px sans-serif';
+  for(let l=0;l<4;l++){
+    ctx.fillStyle=laneFlash[l]>0?'#fff':'rgba(255,255,255,.45)';
+    if(mMode==='studio')ctx.fillText(STUDIO_NAMES[l%8]||'',PX+l*LW+LW/2,HY+28);
+    else ctx.fillText(LANE_KEYS[l].toUpperCase(),PX+l*LW+LW/2,HY+28);
+  }
+  // 錄音室鍵盤
+  if(mMode==='studio'){
+    const kw=(PW-16)/8;
+    for(let k=0;k<8;k++){
+      const kx=PX+8+k*kw;
+      const hot=recFlash[k]>0;
+      ctx.fillStyle=hot?'#ffd166':'#f5f2e8';
+      rr(kx,H-72,kw-4,52,6);ctx.fill();
+      ctx.fillStyle=hot?'#3a2200':'#5b4a3a';ctx.font='bold 13px sans-serif';
+      ctx.fillText(STUDIO_NAMES[k],kx+(kw-4)/2,H-44);
+      ctx.fillStyle='#8f86ad';ctx.font='11px sans-serif';
+      ctx.fillText(STUDIO_KEYS[k].toUpperCase(),kx+(kw-4)/2,H-28);
+    }
+    if(recOn){
+      ctx.fillStyle='#e63946';ctx.beginPath();ctx.arc(PX+PW-30,44,9+Math.sin(performance.now()/200)*2,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';ctx.textAlign='right';
+      ctx.fillText('REC '+recNotes.length+'音 '+recT().toFixed(1)+'s',PX+PW-46,49);ctx.textAlign='left';
+    }else{
+      ctx.fillStyle='#ffe9a8';ctx.font='900 24px "Noto Sans TC",sans-serif';ctx.textAlign='center';
+      ctx.globalAlpha=.6+.4*Math.sin(performance.now()/350);
+      ctx.fillText('再按一次 ● 開始錄音',PX+PW/2,H-92);
+  ctx.globalAlpha=1;ctx.textAlign='left';
+  if(flashT>0){ctx.fillStyle=`rgba(230,57,70,${(flashT*0.55).toFixed(3)})`;ctx.fillRect(PX,0,PW,H);}
+    }
+  }
+  // 粒子＋浮字
+  for(const p of parts){ctx.globalAlpha=Math.min(1,p.life*2.5);ctx.fillStyle=p.col;ctx.fillRect(p.x-p.r/2,p.y-p.r/2,p.r,p.r);}
+  ctx.globalAlpha=1;ctx.textAlign='center';
+  for(const f of floats){
+    ctx.globalAlpha=Math.max(0,1-f.t);
+    ctx.fillStyle=f.col;ctx.font='900 30px "Noto Sans TC",sans-serif';
+    ctx.fillText(f.txt,f.x,300-f.t*70);
+  }
+  ctx.globalAlpha=1;ctx.textAlign='left';
+  if(paused&&!over){
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='900 54px "Noto Sans TC",sans-serif';ctx.textAlign='center';
+    ctx.fillText('⏸ 暫停中',W/2,H/2);ctx.textAlign='left';
+  }
+  requestAnimationFrame(draw);
+}
+function recT(){return recOn?(performance.now()-recT0)/1000:0;}
+
+/* ---------- 主迴圈 ---------- */
+let last=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min(.05,(ts-last)/1000||0);last=ts;
+  if(!started||over||paused)return;
+  update(dt);
+  for(let i=0;i<8;i++)recFlash[i]=Math.max(0,(recFlash[i]||0)-dt);
+}
+
+/* ---------- 輸入 ---------- */
+function laneAt(x){if(x<PX||x>PX+PW)return -1;return Math.min(3,Math.floor((x-PX)/LW));}
+function studioHit(k,viaTap){
+  const midi=60+k;
+  piano(midi);
+  recFlash[k]=.3;
+  if(recOn)recNotes.push({t:recT(),midi});
+  if(viaTap)syncHud();
+}
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(mMode==='studio'&&STUDIO_KEYS.includes(k)){studioHit(STUDIO_KEYS.indexOf(k));e.preventDefault();return;}
+  const li=LANE_KEYS.indexOf(k);
+  if(li>=0){tapLane(li);e.preventDefault();return;}
+  if(k===' '){e.preventDefault();if(!started||over)reset();else togglePause();}
+  else if(k==='r')reset();
+  else if(k==='p'&&started&&!over)togglePause();
+});
+function evPos(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};}
+cv.addEventListener('pointerdown',e=>{
+  if(!started||over||paused)return;
+  try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();}catch(_){}
+  const{x,y}=evPos(e);
+  if(mMode==='studio'){
+    const kw=(PW-16)/8;
+    if(y>H-72&&x>PX&&x<PX+PW){studioHit(Math.min(7,Math.floor((x-PX-8)/kw)),true);return;}
+  }
+  const l=laneAt(x);
+  if(l>=0)tapLane(l);
+  if(cv.setPointerCapture){try{cv.setPointerCapture(e.pointerId);}catch(_){}}
+});
+function togglePause(){
+  if(!started||over||mMode==='studio')return;
+  paused=!paused;
+  $('b-pause').textContent=paused?'▶ 繼續':'⏸ 暫停';
+  beep(600,.06);
+}
+$('b-pause').onclick=togglePause;
+$('b-restart').onclick=()=>{beep(600,.06);if(mMode==='studio')setMode('play');else reset();};
+$('m-play').onclick=()=>setMode('play');
+$('m-auto').onclick=()=>setMode('auto');
+$('m-studio').onclick=()=>{
+  if(mMode==='studio'&&!recOn){ // 開始錄
+    recOn=true;recNotes=[];recT0=performance.now();
+    started=true;over=false;paused=false;$('panel').style.display='none';
+  }else if(mMode==='studio'&&recOn){stopRec(true);}
+  else setMode('studio');
+  syncMode();
+};
+function stopRec(save){
+  recOn=false;
+  if(save&&recNotes.length>=4){
+    const recs=loadJSON(K_RECS);
+    const name='錄音'+(recs.length+1)+'・'+recNotes.length+'音';
+    recs.push({name,notes:recNotes.map(n=>({t:+n.t.toFixed(3),midi:n.midi,len:1})),d:new Date().toLocaleDateString()});
+    saveJSON(K_RECS,recs.slice(-5));
+    refreshSongs();renderRecs();
+    floatText2('已儲存！去選單挑戰它');
+  }else if(save){floatText2('太短了，多彈幾個音');}
+  syncMode();
+}
+function floatText2(txt){floats.push({txt,x:PX+PW/2,col:'#7CFFB2',t:0});}
+$('song-sel').onchange=()=>{if(mMode!=='studio')reset();};
+$('spd-sel').value=String(SPD);
+$('spd-sel').onchange=e=>{SPD=+e.target.value;try{localStorage.setItem(K_SPD,String(SPD));}catch(_){}beep(600,.06);};
+/* 曲譜面板 */
+$('b-sheet').onclick=()=>{renderRecs();$('sheet').style.display='flex';beep(600,.06);};
+$('b-close').onclick=()=>{$('sheet').style.display='none';};
+$('b-sample').onclick=()=>{$('sheet-text').value='5 5 6 6 7 7 5 - 4 4 3 3 2 2 1 -';};
+$('b-load-sheet').onclick=()=>{
+  const txt=$('sheet-text').value.trim();
+  if(!txt)return;
+  const notes=parseJian(txt,100);
+  if(notes.length<4){alert('抓不到音符，檢查格式（例：1 2 3 5）');return;}
+  const customs=loadJSON(K_SONGS);
+  customs.push({name:'自訂'+(customs.length+1)+'・'+notes.length+'鍵',bpm:100,notes,d:new Date().toLocaleDateString()});
+  saveJSON(K_SONGS,customs.slice(-10));
+  refreshSongs(String(songList.length));
+  $('sheet').style.display='none';
+  if(mMode==='studio')setMode('play');else reset();
+};
+$('b-midi').onclick=()=>$('file-midi').click();
+$('file-midi').addEventListener('change',()=>{
+  const f=$('file-midi').files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const r=parseMidi(rd.result);
+    if(r.err){alert(r.err);return;}
+    const customs=loadJSON(K_SONGS);
+    const nm=f.name.replace(/\.midi?$/i,'');
+    customs.push({name:'MIDI・'+nm.slice(0,10)+'・'+r.notes.length+'鍵',bpm:0,notes:r.notes,d:new Date().toLocaleDateString()});
+    saveJSON(K_SONGS,customs.slice(-10));
+    refreshSongs(String(songList.length));
+    $('sheet').style.display='none';
+    if(mMode==='studio')setMode('play');else reset();
+  };
+  rd.readAsArrayBuffer(f);
+  $('file-midi').value='';
+});
+function midiToJian(midi){
+  const rel=midi-60,oct=Math.floor(rel/12);
+  const pc=((rel%12)+12)%12;
+  const map={0:'1',2:'2',4:'3',5:'4',7:'5',9:'6',11:'7'};
+  if(map[pc]!=null)return(oct>0?'+'.repeat(oct):oct<0?'-'.repeat(-oct):'')+map[pc];
+  return map[{1:0,3:2,6:5,8:7,10:9}[pc]]+'~'; // 半音近似
+}
+function renderRecs(){
+  const recs=loadJSON(K_RECS),box=$('rec-list');
+  box.innerHTML=recs.length?recs.map((r,i)=>
+    `<div class="recrow"><span>🎙 ${esc(r.name)}</span><span style="color:#a07d2c">${r.d||''}</span>`+
+    `<button class="btn-warning" data-a="play" data-i="${i}">挑戰</button>`+
+    `<button class="btn-ghost" style="color:#333;border-color:#999" data-a="exp" data-i="${i}">匯出簡譜</button>`+
+    `<button class="btn-ghost" style="color:#a00;border-color:#a00" data-a="del" data-i="${i}">刪</button></div>`
+  ).join(''):'<p style="font-size:13px">還沒有錄音。按 ●錄音室，用 A S D F J K L ; 彈一段吧！</p>';
+  box.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i,a=b.dataset.a,rs=loadJSON(K_RECS),r=rs[i];if(!r)return;
+    if(a==='del'){rs.splice(i,1);saveJSON(K_RECS,rs);refreshSongs('0');renderRecs();}
+    else if(a==='exp'){
+      // 轉簡譜：按 100bpm 量化，空拍補 0
+      let out='',lastT=0;
+      for(const n of r.notes){
+        const gapB=(n.t-lastT)/(60/100);
+        if(gapB>=0.75)out+='0 '.repeat(Math.min(4,Math.round(gapB)));
+        out+=midiToJian(n.midi)+' ';
+        lastT=n.t;
+      }
+      $('sheet-text').value=out.trim();
+    }
+    else if(a==='play'){
+      $('sheet').style.display='none';
+      const idx=songList.findIndex(s=>s.kind==='rec'&&s.idx===i);
+      $('song-sel').value=idx>=0?idx:0;
+      if(mMode==='studio')setMode('play');else reset();
+    }
+  });
+}
+$('c-retry').onclick=()=>{beep(600,.06);if(recOn)stopRec(false);reset();};
+$('c-go').onclick=()=>{
+  beep(600,.06);
+  if(over){reset();}
+  else{$('panel').style.display='none';started=true;paused=false;}
+};
+
+/* ---------- 開場 ---------- */
+refreshSongs('0');
+$('c-title').textContent='🎹 鋼琴塊';
+$('c-sub').innerHTML='方塊掉到黃線時按下對應軌！內建 4 首＋可貼簡譜／傳 MIDI＋錄音室錄完直接變關卡。<br>歷史最佳：'+(BEST?BEST+' 分':'尚未挑戰')+'<br><span style="font-size:13px">D F J K・手機點方塊・左上可直接切 🤖自動／●錄音室（免先開始）</span>';
+$('c-retry').textContent='↻ 直接開始';$('c-go').textContent='開始挑戰 ▶';
+$('panel').style.display='flex';
+loadSong();
+requestAnimationFrame(draw);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -41,6 +41,8 @@
     <div class="pill">🧛 倖存者最佳 <b id="b-survivor">—</b></div>
     <div class="pill">🏯 華容道最佳 <b id="b-huarong">—</b></div>
     <div class="pill">🏃 下樓梯最佳 <b id="b-fall">—</b></div>
+    <div class="pill">🐍 貪食蛇最佳 <b id="b-snake">—</b></div>
+    <div class="pill">🎹 鋼琴塊最佳 <b id="b-piano">—</b></div>
   </div>
   <div id="grid">
     <div class="card">
@@ -84,6 +86,22 @@
       <a href="falldown.html">▶ 開始遊戲</a>
     </div>
     <div class="card">
+      <div class="icon">🐍</div>
+      <h2>貪食蛇・增強版</h2>
+      <div class="en">Snake Plus・3模式5道具</div>
+      <div class="desc">經典/穿牆/障礙三模式，加速護盾雙倍全上，毒菇別碰！</div>
+      <div class="best" id="c-snake"></div>
+      <a href="snake.html">▶ 開始遊戲</a>
+    </div>
+    <div class="card">
+      <div class="icon">🎹</div>
+      <h2>鋼琴塊</h2>
+      <div class="en">Piano Tiles・演奏/自動/錄音</div>
+      <div class="desc">掉到黃線就打！內建4首＋貼簡譜/傳MIDI＋錄音室錄完變關卡。</div>
+      <div class="best" id="c-piano"></div>
+      <a href="piano.html">▶ 開始遊戲</a>
+    </div>
+    <div class="card">
       <div class="icon">🦛</div>
       <h2>河馬水中芭蕾</h2>
       <div class="en">3D Water Ballet</div>
@@ -93,7 +111,7 @@
     </div>
   </div>
   <footer>
-    最佳成績 key：<code>hg-angry-best</code>・<code>hg-tower-best</code>・<code>hg-survivor-best</code>・<code>hg-hippo-best</code>・<code>hg-huarong-bests</code>（每關最佳 JSON）・<code>hg-fall-best</code><br>
+    最佳成績 key：<code>hg-angry-best</code>・<code>hg-tower-best</code>・<code>hg-survivor-best</code>・<code>hg-hippo-best</code>・<code>hg-huarong-bests</code>（每關最佳 JSON）・<code>hg-fall-best</code>・<code>hg-snake-best</code>・<code>hg-piano-best</code><br>
     架構參考：<a href="https://github.com/prateek121/90s-games">prateek121/90s-games</a>（單檔＋index 大廳＋localStorage）・
     <a href="https://github.com/ricardo-foundry/canvas-vampire-survivors">canvas-vampire-survivors</a>（倖存者玩法）
   </footer>
@@ -109,6 +127,7 @@ if(!hrb.length){var hr0=+(get('hg-huarong-best')||0);if(hr0)hrb=[hr0];}
 var hrOK=hrb.filter(function(x){return x>0;});
 var hrMin=hrOK.length?Math.min.apply(null,hrOK):0;
 var fl=get('hg-fall-best');
+var sn=get('hg-snake-best'),pn=get('hg-piano-best');
 document.getElementById('b-angry').textContent=ab?ab+' 分':'—';
 document.getElementById('b-tower').textContent=tb?tb+' 分':'—';
 document.getElementById('b-hippo').textContent=hb?hb+' 分':'—';
@@ -121,6 +140,10 @@ document.getElementById('c-hippo').textContent=hb?('🏆 評審給過 '+hb+' 分
 document.getElementById('c-huarong').textContent=hrOK.length?('🏆 已破 '+hrOK.length+'/12・最少 '+hrMin+' 步'):'還沒留下紀錄，來當第一個！';
 document.getElementById('b-fall').textContent=fl?('B'+fl):'—';
 document.getElementById('c-fall').textContent=fl?('🏆 下到 B'+fl):'還沒留下紀錄，來當第一個！';
+document.getElementById('b-snake').textContent=sn?sn+' 分':'—';
+document.getElementById('c-snake').textContent=sn?('🏆 最高 '+sn+' 分'):'還沒留下紀錄，來當第一個！';
+document.getElementById('b-piano').textContent=pn?pn+' 分':'—';
+document.getElementById('c-piano').textContent=pn?('🏆 最高 '+pn+' 分'):'還沒留下紀錄，來當第一個！';
 </script>
 </body>
 </html>
