@@ -44,6 +44,27 @@
   #b-upload{padding:9px 18px;font-size:14px}
   #b-upload:disabled{opacity:.5}
   #up-msg{font-size:12.5px;color:#7a4d00;min-height:18px;margin-top:6px}
+  /* === RWD手機直式修正 2026-09-11：直式改全螢幕＋卡片不爆版 === */
+  #panel{padding:12px;overflow-y:auto}
+  #card{max-width:min(92vw,560px);width:calc(100% - 24px);max-height:92vh;max-height:92dvh;overflow-y:auto;padding:20px 18px;-webkit-overflow-scrolling:touch}
+  #card h2{font-size:clamp(22px,6vw,32px);line-height:1.3;word-break:break-word}
+  #card p{font-size:clamp(13px,3.8vw,15px);word-break:break-word}
+  #card .row button{flex:1 1 140px;min-height:44px}
+  .board{max-width:100%}
+  .brow{font-size:13px;flex-wrap:wrap}
+  #p-name{max-width:none;width:100%}
+  .uprow{flex-wrap:wrap}
+  .uprow button{flex:1 1 140px;min-height:44px}
+  @media (orientation:portrait),(max-width:700px){
+    #app{align-items:stretch;justify-content:flex-start}
+    #stage{width:100vw;height:100vh;height:100dvh;max-height:none;aspect-ratio:auto;border-radius:0}
+    #hud{flex-wrap:wrap;right:10px}
+    .pill{font-size:12px;padding:5px 10px}
+    button{min-height:44px}
+    #btns{top:auto;bottom:calc(58px + env(safe-area-inset-bottom));right:10px}
+    #btns button{padding:10px 12px;font-size:13px}
+    #tip{white-space:normal;text-align:center;left:10px;right:10px;transform:none;font-size:11.5px;line-height:1.5;bottom:calc(10px + env(safe-area-inset-bottom))}
+  }
 </style>
 </head>
 <body>

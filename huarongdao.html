@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>華容道 | Klotski</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
@@ -27,6 +27,24 @@
   #lvlbar{position:absolute;top:56px;left:10px;display:flex;gap:8px;z-index:6;align-items:center}
   #lvl-sel{font-family:inherit;font-size:13.5px;font-weight:800;border-radius:10px;padding:7px 10px;background:rgba(8,20,32,.88);color:#ffd166;border:1px solid rgba(255,209,102,.5);cursor:pointer;max-width:240px}
   #lvl-sel option{color:#111;font-weight:400}
+  /* === RWD手機直式修正 2026-09-11 === */
+  #panel{padding:12px;overflow-y:auto}
+  #card{max-width:min(92vw,560px);width:calc(100% - 24px);max-height:92vh;max-height:92dvh;overflow-y:auto;padding:20px 18px;-webkit-overflow-scrolling:touch}
+  #card h2{font-size:clamp(22px,6vw,32px);line-height:1.3;word-break:break-word}
+  #card p{font-size:clamp(13px,3.8vw,15px);word-break:break-word}
+  #card .row button{flex:1 1 140px;min-height:44px}
+  @media (orientation:portrait),(max-width:700px){
+    #app{align-items:stretch;justify-content:flex-start}
+    #stage{width:100vw;height:100vh;height:100dvh;max-height:none;aspect-ratio:auto;border-radius:0}
+    #hud{flex-wrap:wrap;right:10px}
+    .pill{font-size:12px;padding:5px 10px}
+    button{min-height:44px}
+    #btns{top:auto;bottom:calc(58px + env(safe-area-inset-bottom));right:10px;flex-wrap:wrap;justify-content:flex-end;max-width:70vw}
+    #btns button{padding:10px 12px;font-size:13px}
+    #lvlbar{top:62px;right:10px;flex-wrap:wrap}
+    #lvl-sel{max-width:52vw;font-size:12.5px}
+    #tip{white-space:normal;text-align:center;left:10px;right:10px;transform:none;font-size:11.5px;line-height:1.5;bottom:calc(10px + env(safe-area-inset-bottom))}
+  }
 </style>
 </head>
 <body>
