@@ -52,16 +52,20 @@
   #card .row button{flex:1 1 140px;min-height:44px}
   #sheet-card{width:min(640px,94vw)}
   @media (orientation:portrait),(max-width:700px){
-    #app{align-items:stretch;justify-content:flex-start}
-    #stage{width:100vw;height:100vh;height:100dvh;max-height:none;aspect-ratio:auto;border-radius:0}
-    #hud{flex-wrap:wrap;right:10px}
+    /* 直式：畫面等比不拉伸，HUD/選曲列走縱向流，操作列固定底部 */
+    #app{overflow-y:auto;padding:10px 0 128px}
+    #stage{width:100vw;max-width:100vw;height:auto;max-height:none;aspect-ratio:auto;border-radius:0;display:flex;flex-direction:column;margin:auto;overflow:hidden}
+    canvas{width:100%;height:auto;flex:none;order:5}
+    #hud{position:static;order:1;right:auto;padding:8px 10px 0}
     .pill{font-size:12px;padding:5px 10px}
     button{min-height:44px}
-    #btns{top:auto;bottom:calc(58px + env(safe-area-inset-bottom));right:10px}
+    #btns{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));top:auto;justify-content:center;flex-wrap:wrap;z-index:5}
     #btns button{padding:10px 12px;font-size:13px}
-    #songbar{top:60px;right:10px;max-width:calc(100% - 20px)}
+    #songbar{position:static;order:2;max-width:none;padding:6px 10px 0}
     #song-sel{max-width:46vw;font-size:12.5px}
-    #tip{white-space:normal;text-align:center;left:10px;right:10px;transform:none;font-size:11.5px;line-height:1.5;bottom:calc(10px + env(safe-area-inset-bottom))}
+    #tip{position:fixed;left:10px;right:10px;bottom:calc(66px + env(safe-area-inset-bottom));top:auto;transform:none;white-space:normal;text-align:center;font-size:11.5px;line-height:1.5;z-index:5}
+    #tip::before{content:"📱 橫放更大・"}
+    #panel{z-index:50}
   }
 </style>
 </head>
