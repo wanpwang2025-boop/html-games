@@ -99,6 +99,16 @@
     .btn-big{width:100%;padding:14px 12px;font-size:17px}
     .upbtn{font-size:14px;padding:12px}
   }
+  /* === 橫式矮螢幕（手機橫放，高度<500px）：HUD換行＋大廳連結移到底部，避免互疊 === */
+  @media (orientation:landscape) and (max-height:500px){
+    #hud{flex-wrap:wrap;max-width:57%;row-gap:6px}
+    .pill{font-size:11px;padding:4px 10px}
+    #hpbar{width:44px}
+    #btns button{font-size:12px;padding:7px 10px}
+    #home{top:auto;bottom:10px;left:10px}
+    #home a{font-size:11px;padding:5px 10px}
+    #tip{display:none}
+  }
 </style>
 </head>
 <body>

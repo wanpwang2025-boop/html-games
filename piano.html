@@ -67,6 +67,16 @@
     #tip::before{content:"📱 橫放更大・"}
     #panel{z-index:50}
   }
+  /* === 橫式矮螢幕（手機橫放，高度<500px）：HUD換行＋選曲列移到底部，避免互疊 === */
+  @media (orientation:landscape) and (max-height:500px){
+    #hud{flex-wrap:wrap;max-width:55%;row-gap:6px}
+    .pill{font-size:11px;padding:4px 10px}
+    #btns button{font-size:12px;padding:7px 10px}
+    #songbar{top:auto;bottom:10px;left:10px;max-width:64%}
+    #songbar button,#song-sel{font-size:11px;padding:5px 10px}
+    #song-sel{max-width:32vw}
+    #tip{display:none}
+  }
 </style>
 </head>
 <body>

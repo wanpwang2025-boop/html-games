@@ -59,6 +59,21 @@
     #tip{display:none}
     #panel{z-index:50}
   }
+  /* === 橫式矮螢幕（手機橫放，高度<500px）：側欄縮窄＋提示隱藏，避免蓋住地圖與按鈕 === */
+  @media (orientation:landscape) and (max-height:500px){
+    #topbar{flex-wrap:wrap;max-width:calc(100% - 216px)}
+    .pill{font-size:11px;padding:4px 10px}
+    #side{width:198px;padding:8px;font-size:11px}
+    #side h3{font-size:12.5px;margin-bottom:6px}
+    #side .desc{font-size:10.5px;margin-bottom:6px}
+    .tbtn{font-size:11px;padding:6px 8px;margin-bottom:5px}
+    .tbtn small{font-size:10px}
+    #shop{font-size:10.5px;margin-top:6px;padding-top:6px}
+    #controls button{font-size:12px;padding:8px 10px}
+    #b-wave{min-width:120px}
+    #tip{display:none}
+    #msg{font-size:12px;top:44px;max-width:92%;white-space:normal;text-align:center}
+  }
 </style>
 </head>
 <body>

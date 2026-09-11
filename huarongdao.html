@@ -49,6 +49,15 @@
     #tip::before{content:"📱 橫放更大・"}
     #panel{z-index:50}
   }
+  /* === 橫式矮螢幕（手機橫放，高度<500px）：按鈕列移到第二排＋選關列移到底部，避免互疊 === */
+  @media (orientation:landscape) and (max-height:500px){
+    .pill{font-size:11px;padding:4px 10px}
+    #btns{top:48px}
+    #btns button{font-size:12px;padding:7px 10px}
+    #lvlbar{top:auto;bottom:10px;left:10px}
+    #lvl-sel{font-size:12px;max-width:40vw}
+    #tip{display:none}
+  }
 </style>
 </head>
 <body>
