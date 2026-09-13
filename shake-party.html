@@ -45,6 +45,41 @@ h2{font-size:26px;margin-bottom:6px}
 .balls{font-size:15px;color:#cfe0ef;min-height:24px;margin-top:6px}
 #tip{position:absolute;bottom:8px;left:0;right:0;text-align:center;color:#6b8aa3;font-size:12.5px;z-index:5}
 .warn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.5);border-radius:12px;padding:10px 16px;max-width:640px;margin:10px auto;font-size:13.5px;line-height:1.7;color:#fecaca}
+/* === RWD手機直式：放掉16/9，改縱向流，字用clamp跟著螢幕縮 === */
+@media (orientation:portrait),(max-width:700px){
+  html,body{overflow:auto;height:auto;min-height:100%}
+  #app{display:block;height:auto;min-height:100vh;min-height:100dvh;padding:0 0 24px;overflow-y:auto}
+  #stage{width:100vw;max-width:100vw;aspect-ratio:auto;max-height:none;min-height:100vh;min-height:100dvh;border-radius:0;display:flex;flex-direction:column;overflow:visible}
+  #hud{position:static;max-width:100%;padding:10px 10px 0}
+  .pill{font-size:12px;padding:5px 10px}
+  #btns{position:static;margin:0 10px 0 auto;padding:10px 0 0}
+  #btns button{padding:8px 12px;font-size:13px}
+  #screen{position:static;flex:1;padding:12px 14px 20px;overflow:visible}
+  #tip{position:static;padding:8px 14px;font-size:11px;line-height:1.6;white-space:normal}
+  #tip::before{content:"📱 建議橫放・"}
+  h1{font-size:clamp(24px,7vw,34px)}
+  h2{font-size:clamp(20px,6vw,26px)}
+  .sub{font-size:clamp(12.5px,3.8vw,14px)}
+  .card{padding:16px 14px;margin:10px auto}
+  .big{font-size:clamp(16px,5vw,20px)}
+  .btn{font-size:clamp(15px,4.5vw,18px);padding:12px 24px}
+  .btn-go{display:block;width:100%;margin:8px 0}
+  .poe{font-size:clamp(48px,15vw,64px)}
+  #powerTxt{font-size:clamp(32px,10vw,44px)}
+  .bingo{grid-template-columns:repeat(3,clamp(64px,22vw,84px))}
+  .cell{height:clamp(52px,16vw,64px);font-size:clamp(20px,6vw,26px)}
+}
+/* === 橫式矮螢幕（手機橫放）：壓縮間距＋藏tip，避免互疊 === */
+@media (orientation:landscape) and (max-height:500px){
+  #screen{padding:44px 16px 20px}
+  h1{font-size:24px}h2{font-size:20px}
+  .pill{font-size:11px;padding:4px 10px}
+  #hud{max-width:60%;flex-wrap:wrap;row-gap:6px}
+  .btn{padding:8px 20px;font-size:15px}
+  .poe{font-size:44px}
+  #powerTxt{font-size:30px}
+  #tip{display:none}
+}
 </style>
 </head>
 <body>
@@ -52,7 +87,7 @@ h2{font-size:26px;margin-bottom:6px}
 <div id="hud"><div class="pill">📳 <b id="h-mode">—</b></div><div class="pill">👤 <b id="h-player">—</b></div><div class="pill">🏆 <b id="h-best">—</b></div></div>
 <div id="btns"><button id="b-restart">↻</button><button id="b-home">🏠</button></div>
 <div id="screen"></div>
-<div id="tip">建議 Android Chrome 遊玩（感測器＋震動全支援）・iPhone 需按鈕授權、無震動・桌機請晃滑鼠/連打空白鍵</div>
+<div id="tip">Android Chrome 完整版・iPhone 限 https＋按鈕授權、無震動・無感測器時用手指搓螢幕代替搖</div>
 </div></div>
 <script>
 "use strict";
@@ -71,10 +106,10 @@ function saveBest(v){if(v>BEST){BEST=v;try{localStorage.setItem(KEY,String(v));}
    motion（三軸加速度）/ mouse（滑鼠位移）/ key（空白鍵）三路並行
    ============================================================ */
 const Shake={
- power:0, mode:'偵測中…', live:false,
+ power:0, mode:'偵測中…', live:false, events:0,
  init(){
   this.live=true;
-  // 1) 動作感測
+  // 1) 動作感測（需 https；http 下 iPhone 直接不給數據）
   if(typeof DeviceMotionEvent!=='undefined'){
    if(typeof DeviceMotionEvent.requestPermission==='function'){this.mode='iPhone（需授權）';}
    else{this.mode='Android 完整版';window.addEventListener('devicemotion',e=>this.onMotion(e));}
@@ -90,6 +125,15 @@ const Shake={
   window.addEventListener('keydown',e=>{
    if(e.code==='Space'){this.power=Math.min(100,this.power+7);e.preventDefault();}
   });
+  // 4) 觸控 fallback（iPhone http 無感測器時的主力：手指在螢幕上搓）
+  let tlx=null,tly=null;
+  window.addEventListener('touchstart',()=>{tlx=null;tly=null;},{passive:true});
+  window.addEventListener('touchmove',e=>{
+   const t=e.touches[0];if(!t)return;
+   if(tlx===null){tlx=t.clientX;tly=t.clientY;return;}
+   const d=Math.hypot(t.clientX-tlx,t.clientY-tly);tlx=t.clientX;tly=t.clientY;
+   this.power=Math.min(100,this.power+d*0.35);
+  },{passive:true});
   // 衰減迴圈
   const tick=()=>{if(!this.live)return;this.power*=0.90;requestAnimationFrame(tick);};
   requestAnimationFrame(tick);
@@ -103,6 +147,7 @@ const Shake={
   return false;
  },
  onMotion(e){
+  this.events++;
   let m=0;
   const a=e.acceleration;
   if(a&&(a.x!==null&&a.x!==undefined)){m=Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z);}
@@ -142,13 +187,14 @@ function l1turn(){
  const p=players[turn];
  scr.innerHTML='<h2>🙏 擲筊・'+p.name+'</h2><div class="sub">剩餘 '+p._t+' 筊・目前本關 '+p.s1+' 分'+(p._streak>0?'・<b>'+p._streak+'連莊中🔥</b>':'')+'</div>'
  +'<div class="card" id="poeCard"><span class="poe" id="poe1">🌙</span><span class="poe" id="poe2">🌙</span><div class="big" id="poeTxt">合掌，心裡默念願望…</div></div>'
- +'<div id="powerWrap"><div id="powerBarOuter"><div id="powerBar"></div></div><div id="powerTxt">0</div><div class="sub">用力搖手機（桌機：晃滑鼠/空白鍵）累積誠意，再按擲！</div></div>'
+ +'<div id="powerWrap"><div id="powerBarOuter"><div id="powerBar"></div></div><div id="powerTxt">0</div><div class="sub">用力搖手機（沒感測器時：手指在螢幕上搓 / 晃滑鼠 / 空白鍵）累積誠意，再按擲！<br>誠意＝這次搓過的最高點，不會掉，放心移手指去按擲。</div></div>'
  +'<button class="btn btn-go" id="cast">🎲 擲！</button>';
  const bar=$('powerBar'),txt=$('powerTxt');
- const iv=setInterval(()=>{bar.style.width=Shake.power+'%';txt.textContent=Math.round(Shake.power);if(!document.body.contains(bar))clearInterval(iv);},60);
+ let peak=0; // 峰值制：衰減不影響誠意
+ const iv=setInterval(()=>{peak=Math.max(peak,Shake.power);bar.style.width=Shake.power+'%';txt.textContent='誠意 '+Math.round(peak);if(!document.body.contains(bar))clearInterval(iv);},60);
  $('cast').onclick=()=>{
   clearInterval(iv);
-  const style=Math.round(Shake.power);Shake.power=0;
+  const style=Math.round(peak);Shake.power=0;
   // 擲筊動畫
   $('poeCard').classList.add('shaking');$('poeTxt').textContent='筊在飛…';vib(80);beep(600,.15,'square',.06);
   setTimeout(()=>{
@@ -291,14 +337,23 @@ function showSetup(){
  const sel=$('sel');
  [2,3,4].forEach(n=>{const b=document.createElement('button');b.textContent=n+'人';if(n===humans)b.classList.add('on');b.onclick=()=>{humans=n;sel.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');};sel.appendChild(b);});
  const sen=$('sensor');
+ let html='';
+ if(!window.isSecureContext)html+='<div class="warn">⚠️ 目前是 http（非加密）：iPhone 感測器不會有數據，這是 Safari 規定不是 bug。先用「手指在螢幕上搓」代替搖；真搖請上傳後用 Pages 的 https 網址測。</div>';
  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
-  sen.innerHTML='<div class="warn">📱 偵測到 iPhone：請按下面授權才能用搖晃感測（Safari 規定）</div><button class="btn btn-ghost" id="auth">啟用感測器</button>';
-  $('auth').onclick=async()=>{const ok=await Shake.iosAuth();sen.innerHTML=ok?'✅ 感測器已啟用！':'⚠️ 未授權，將使用桌機模式（晃滑鼠/空白鍵）';};
+  html+='<div class="warn">📱 偵測到 iPhone：請按下面授權才能用搖晃感測（Safari 規定，限 https 有效）</div><button class="btn btn-ghost" id="auth">啟用感測器</button>';
+  sen.innerHTML=html+'<div class="sub" id="senStat"></div>';
+  $('auth').onclick=async()=>{const ok=await Shake.iosAuth();$('auth').outerHTML=ok?'✅ 感測器已啟用！':'⚠️ 未授權，改用手指搓螢幕代替搖';};
  }else if(typeof DeviceMotionEvent!=='undefined'){
-  sen.innerHTML='<div class="sub">✅ Android 感測器就緒＋震動支援</div>';
+  sen.innerHTML=html+'<div class="sub">✅ Android 感測器就緒＋震動支援</div><div class="sub" id="senStat"></div>';
  }else{
-  sen.innerHTML='<div class="warn">💻 桌機模式：晃動滑鼠或連打空白鍵代替搖晃</div>';
+  sen.innerHTML=html+'<div class="warn">💻 無動作感測器：晃動滑鼠 / 連打空白鍵 / 手指搓螢幕代替搖晃</div><div class="sub" id="senStat"></div>';
  }
+ // 即時診斷行：看得到 power 在動、事件數在跑，就知道感測器活著
+ const stat=$('senStat');
+ const siv=setInterval(()=>{
+  if(!document.body.contains(stat)){clearInterval(siv);return;}
+  stat.textContent='📡 診斷：力度 '+Math.round(Shake.power)+'・感測事件 '+Shake.events+'（數字會動＝有數據）';
+ },400);
  $('start').onclick=()=>{mkPlayers(humans);phase='play';$('h-player').textContent=players[0].name;l1start();};
 }
 $('b-restart').onclick=()=>showSetup();
