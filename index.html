@@ -43,6 +43,8 @@
     <div class="pill">🏃 下樓梯最佳 <b id="b-fall">—</b></div>
     <div class="pill">🐍 貪食蛇最佳 <b id="b-snake">—</b></div>
     <div class="pill">🎹 鋼琴塊最佳 <b id="b-piano">—</b></div>
+    <div class="pill">🎲 大富翁最佳 <b id="b-monopoly">—</b></div>
+    <div class="pill">📳 搖搖最佳 <b id="b-shake">—</b></div>
   </div>
   <div id="grid">
     <div class="card">
@@ -102,6 +104,22 @@
       <a href="piano.html">▶ 開始遊戲</a>
     </div>
     <div class="card">
+      <div class="icon">🎲</div>
+      <h2>新北大富翁</h2>
+      <div class="en">Monopoly・同機2真人+AI</div>
+      <div class="desc">環遊新北28格！買地蓋房收過路費，讓對手破產吧。</div>
+      <div class="best" id="c-monopoly"></div>
+      <a href="monopoly.html">▶ 開始遊戲</a>
+    </div>
+    <div class="card">
+      <div class="icon">📳</div>
+      <h2>新北搖搖合輯</h2>
+      <div class="en">Shake Party・體感三關</div>
+      <div class="desc">擲筊大賽→工頭不要搖→搖彩球賓果！建議 Android 遊玩。</div>
+      <div class="best" id="c-shake"></div>
+      <a href="shake-party.html">▶ 開始遊戲</a>
+    </div>
+    <div class="card">
       <div class="icon">🦛</div>
       <h2>河馬水中芭蕾</h2>
       <div class="en">3D Water Ballet</div>
@@ -111,7 +129,7 @@
     </div>
   </div>
   <footer>
-    最佳成績 key：<code>hg-angry-best</code>・<code>hg-tower-best</code>・<code>hg-survivor-best</code>・<code>hg-hippo-best</code>・<code>hg-huarong-bests</code>（每關最佳 JSON）・<code>hg-fall-best</code>・<code>hg-snake-best</code>・<code>hg-piano-best</code><br>
+    最佳成績 key：<code>hg-angry-best</code>・<code>hg-tower-best</code>・<code>hg-survivor-best</code>・<code>hg-hippo-best</code>・<code>hg-huarong-bests</code>（每關最佳 JSON）・<code>hg-fall-best</code>・<code>hg-snake-best</code>・<code>hg-piano-best</code>・<code>hg-monopoly-best</code>（最高資產）・<code>hg-shake-best</code>（搖搖總分）<br>
     架構參考：<a href="https://github.com/prateek121/90s-games">prateek121/90s-games</a>（單檔＋index 大廳＋localStorage）・
     <a href="https://github.com/ricardo-foundry/canvas-vampire-survivors">canvas-vampire-survivors</a>（倖存者玩法）
   </footer>
@@ -128,6 +146,8 @@ var hrOK=hrb.filter(function(x){return x>0;});
 var hrMin=hrOK.length?Math.min.apply(null,hrOK):0;
 var fl=get('hg-fall-best');
 var sn=get('hg-snake-best'),pn=get('hg-piano-best');
+var mo=get('hg-monopoly-best');
+var sh=get('hg-shake-best');
 document.getElementById('b-angry').textContent=ab?ab+' 分':'—';
 document.getElementById('b-tower').textContent=tb?tb+' 分':'—';
 document.getElementById('b-hippo').textContent=hb?hb+' 分':'—';
@@ -144,6 +164,10 @@ document.getElementById('b-snake').textContent=sn?sn+' 分':'—';
 document.getElementById('c-snake').textContent=sn?('🏆 最高 '+sn+' 分'):'還沒留下紀錄，來當第一個！';
 document.getElementById('b-piano').textContent=pn?pn+' 分':'—';
 document.getElementById('c-piano').textContent=pn?('🏆 最高 '+pn+' 分'):'還沒留下紀錄，來當第一個！';
+document.getElementById('b-monopoly').textContent=mo?('$'+mo):'—';
+document.getElementById('c-monopoly').textContent=mo?('🏆 最高資產 $'+mo):'還沒留下紀錄，來當第一個！';
+document.getElementById('b-shake').textContent=sh?(sh+' 分'):'—';
+document.getElementById('c-shake').textContent=sh?('🏆 最高 '+sh+' 分'):'還沒留下紀錄，來當第一個！';
 </script>
 </body>
 </html>

@@ -16,6 +16,8 @@
 | 🏃 小朋友下樓梯 | https://wanpwang2025-boop.github.io/html-games/falldown.html |
 | 🐍 貪食蛇・增強版 | https://wanpwang2025-boop.github.io/html-games/snake.html |
 | 🎹 鋼琴塊 | https://wanpwang2025-boop.github.io/html-games/piano.html |
+| 🎲 新北大富翁 | https://wanpwang2025-boop.github.io/html-games/monopoly.html |
+| 📳 新北搖搖合輯 | https://wanpwang2025-boop.github.io/html-games/shake-party.html |
 | 🦛 河馬水中芭蕾 | https://wanpwang2025-boop.github.io/html-games/hippo-water-ballet.html |
 
 > 注意：最佳成績存在「當下那台裝置的瀏覽器」（`localStorage`），換手機/電腦或開無痕不會同步；
@@ -32,6 +34,8 @@
 | 🏃 小朋友下樓梯 | `falldown.html` | NS-Shaft like：左右移動往下跳，5 種地板＋血量＋隨深度加速。玩法參考 iPel/NS-SHAFT |
 | 🐍 貪食蛇・增強版 | `snake.html` | 3 模式（經典/穿牆/障礙）＋5 道具＋4 食物，150 分升一級。概念參考 Snek／Ian-Lusule |
 | 🎹 鋼琴塊 | `piano.html` | 演奏/自動/錄音室：內建 4 首＋簡譜貼上/MIDI 上傳＋錄音轉關卡。概念參考 Wscats/piano、Siilsy/Piano |
+| 🎲 新北大富翁 | `monopoly.html` | 同機1-2真人＋AI補到2-4人：環新北28格買地蓋房，破產淘汰，25回合比資產 |
+| 📳 新北搖搖合輯 | `shake-party.html` | 體感三關：擲筊大賽＋工頭不要搖＋搖彩球賓果。DeviceMotion＋震動，建議 Android；桌機晃滑鼠/空白鍵降級 |
 | 🦛 河馬水中芭蕾 | `hippo-water-ballet.html` | Three.js 3D 跳水＋水花物理展示（需網路載入 CDN）。可放入圖片分析（明亮/飽和/動感/暖冷＋5 色票）產生專屬主題秀，另有海洋/落日/星空/櫻花 4 預設 |
 
 `index.html` 是大廳頁，會讀取各遊戲的最佳成績。
@@ -58,7 +62,7 @@ git add -A && git commit -m "說明" && git push
 ## 存檔 key（`localStorage`）
 
 `hg-angry-best`・`hg-angry-level`・`hg-tower-best`・`hg-tower-wave`・
-`hg-survivor-best`・`hg-survivor-kills`・`hg-survivor-board`（倖存者前 10 名榮譽榜）・`hg-survivor-name`（上傳用暱稱）・`hg-hippo-best`・`hg-hippo-theme`（河馬主題秀 JSON）・`hg-huarong-bests`（華容道每關最少步 JSON）・`hg-huarong-level`・`hg-fall-best`（下樓梯最深層數）・`hg-fall-board`（下樓梯前 10 名本機榜）・`hg-fall-name`（上傳用暱稱）・`hg-snake-best`・`hg-snake-board`（貪食蛇前 10 名本機榜）・`hg-piano-best`・`hg-piano-songs`（自訂曲譜 JSON）・`hg-piano-recs`（錄音 JSON）
+`hg-survivor-best`・`hg-survivor-kills`・`hg-survivor-board`（倖存者前 10 名榮譽榜）・`hg-survivor-name`（上傳用暱稱）・`hg-hippo-best`・`hg-hippo-theme`（河馬主題秀 JSON）・`hg-huarong-bests`（華容道每關最少步 JSON）・`hg-huarong-level`・`hg-fall-best`（下樓梯最深層數）・`hg-fall-board`（下樓梯前 10 名本機榜）・`hg-fall-name`（上傳用暱稱）・`hg-snake-best`・`hg-snake-board`（貪食蛇前 10 名本機榜）・`hg-piano-best`・`hg-piano-songs`（自訂曲譜 JSON）・`hg-piano-recs`（錄音 JSON）・`hg-monopoly-best`（大富翁最高資產）・`hg-shake-best`（搖搖總分）
 
 ## 鋼琴塊曲譜格式（`piano.html`）
 

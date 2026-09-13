@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>新北大富翁 | Monopoly</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#0b1622;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden}
+#app{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;aspect-ratio:16/9;width:min(100vw,177.78vh);max-height:100vh;border-radius:14px;overflow:hidden;box-shadow:0 20px 80px rgba(0,0,0,.6);background:#10202f}
+canvas{width:100%;height:100%;display:block;touch-action:none}
+#hud{position:absolute;top:10px;left:10px;display:flex;gap:8px;z-index:5;pointer-events:none;flex-wrap:wrap;max-width:70%}
+.pill{background:rgba(8,20,32,.85);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800}
+.pill b{color:#ffd166}
+#btns{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:6}
+#btns button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:10px;padding:7px 14px;font-size:14px;font-weight:800;cursor:pointer}
+#btns button:hover{background:rgba(255,255,255,.25)}
+#diceBtn{position:absolute;z-index:6;background:linear-gradient(180deg,#ffd166,#ff9f1c);border:none;color:#3a2200;font-weight:900;border-radius:12px;padding:12px 26px;font-size:18px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+#diceBtn:disabled{filter:grayscale(.7);opacity:.55;cursor:default}
+#panel{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:10}
+#card{background:#fffdf4;border-radius:18px;padding:26px 34px;text-align:center;max-width:min(560px,86%);color:#222;max-height:88%;overflow:auto}
+#card h2{font-size:24px;margin-bottom:8px}
+#card p{font-size:15px;line-height:1.7;margin:8px 0;white-space:pre-line}
+#card .row{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+#card button{border:none;border-radius:10px;padding:10px 22px;font-size:16px;font-weight:900;cursor:pointer}
+.btn-go{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200}
+.btn-ghost{background:#e8e2d5;color:#333}
+.btn-danger{background:#ef4444;color:#fff}
+#tip{position:absolute;bottom:8px;left:0;right:0;text-align:center;color:#9fc3dd;font-size:13px;z-index:5;pointer-events:none}
+.sel{display:flex;gap:8px;justify-content:center;margin:10px 0;flex-wrap:wrap}
+.sel button{border:2px solid #d8cfba;background:#fff;border-radius:10px;padding:8px 16px;font-size:15px;font-weight:800;cursor:pointer;color:#333}
+.sel button.on{border-color:#ff9f1c;background:#fff3d6}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+<canvas id="game" width="1280" height="720"></canvas>
+<div id="hud"><div class="pill">🎲 <b id="h-turn">—</b></div><div class="pill">💰 <b id="h-money">—</b></div><div class="pill">🏆 <b id="h-best">—</b></div></div>
+<div id="btns"><button id="b-restart">↻</button><button id="b-home">🏠</button></div>
+<button id="diceBtn">🎲 擲骰</button>
+<div id="panel"><div id="card"><h2 id="c-title"></h2><p id="c-sub"></p><div id="c-sel"></div><div class="row" id="c-row"></div></div></div>
+<div id="tip">同機輪流・點骰子前進・買地蓋房讓對手破產｜起點經過領 $2000</div>
+</div></div>
+<script>
+"use strict";
+const W=1280,H=720;
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+/* ===== 音效 ===== */
+let AC=null;
+function beep(f,d=.1,type='triangle',v=.07){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+const sfx={
+ dice(){beep(500,.08,'square',.05);setTimeout(()=>beep(700,.08,'square',.05),90);},
+ move(){beep(440,.05,'triangle',.05);},
+ cash(){beep(880,.12,'sine',.08);setTimeout(()=>beep(1320,.15,'sine',.07),110);},
+ bad(){beep(220,.25,'sawtooth',.07);},
+ win(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.18,'triangle',.08),i*140));}
+};
+/* ===== 存檔 ===== */
+const KEY='hg-monopoly-best';let BEST=0;
+try{BEST=+(localStorage.getItem(KEY)||0);}catch(e){}
+function saveBest(v){if(v>BEST){BEST=v;try{localStorage.setItem(KEY,String(v));}catch(e){}}syncHud();}
+/* ===== 混合棋盤底圖（有圖用圖，沒圖用漸層，不會壞） ===== */
+const bgImg=new Image();let bgOK=false;
+bgImg.onload=()=>{bgOK=true;};
+bgImg.onerror=()=>{bgOK=false;};
+bgImg.src='assets/board-bg.png';
+/* ===== 28 格：8/邊（含角）===== */
+const CELL=90,BX=20,BY=0; // 棋盤原點 720x720
+function cellRect(i){
+ if(i>=0&&i<=7)return{x:BX+630-90*i,y:BY+630,w:90,h:90};
+ if(i>=8&&i<=13)return{x:BX+0,y:BY+630-90*(i-7),w:90,h:90};
+ if(i===14)return{x:BX+0,y:BY+0,w:90,h:90};
+ if(i>=15&&i<=20)return{x:BX+90*(i-14),y:BY+0,w:90,h:90};
+ if(i===21)return{x:BX+630,y:BY+0,w:90,h:90};
+ return{x:BX+630,y:BY+90*(i-21),w:90,h:90};
+}
+// type: go/prop/fate/chance/tax/jail/bonus
+const BOARD=[
+ {n:'板橋車站',t:'go',c:'#ffd166',sub:'起點 +$2000'},
+ {n:'深坑',t:'prop',c:'#4aa8ff',price:600},
+ {n:'坪林',t:'prop',c:'#4aa8ff',price:650},
+ {n:'淡水老街',t:'fate',c:'#a78bfa',sub:'命運'},
+ {n:'平溪',t:'prop',c:'#4aa8ff',price:700},
+ {n:'貢寮',t:'prop',c:'#4aa8ff',price:750},
+ {n:'野柳',t:'tax',c:'#94a3b8',sub:'繳稅 $800',amt:800},
+ {n:'雙溪',t:'prop',c:'#4aa8ff',price:800},
+ {n:'烏來',t:'prop',c:'#4aa8ff',price:850},
+ {n:'九份',t:'chance',c:'#fb923c',sub:'機會'},
+ {n:'土城',t:'prop',c:'#4ade80',price:1200},
+ {n:'樹林',t:'prop',c:'#4ade80',price:1300},
+ {n:'三峽',t:'prop',c:'#4ade80',price:1400},
+ {n:'鶯歌',t:'prop',c:'#4ade80',price:1500},
+ {n:'碧潭',t:'jail',c:'#94a3b8',sub:'停留1回合'},
+ {n:'蘆洲',t:'prop',c:'#4ade80',price:1600},
+ {n:'五股',t:'prop',c:'#4ade80',price:1700},
+ {n:'泰山',t:'prop',c:'#4ade80',price:1800},
+ {n:'漁人碼頭',t:'bonus',c:'#ffd166',sub:'獎金 +$1000',amt:1000},
+ {n:'新莊',t:'prop',c:'#facc15',price:2200},
+ {n:'中和',t:'prop',c:'#facc15',price:2300},
+ {n:'三重',t:'prop',c:'#facc15',price:2400},
+ {n:'永和',t:'prop',c:'#f87171',price:2500},
+ {n:'新店',t:'prop',c:'#f87171',price:2600},
+ {n:'平溪天燈',t:'fate',c:'#a78bfa',sub:'命運'},
+ {n:'汐止',t:'prop',c:'#f87171',price:2800},
+ {n:'板橋',t:'prop',c:'#f87171',price:3200},
+ {n:'淡水',t:'prop',c:'#f87171',price:3500},
+];
+BOARD.forEach(s=>{if(s.t==='prop'){s.rent=Math.round(s.price*0.12);s.up=Math.round(s.price*0.5);s.owner=-1;s.lv=0;}});
+function rentOf(s){return Math.round(s.rent*[1,2,3.5,5][s.lv]);}
+/* ===== 卡片 ===== */
+const FATE=[
+ {t:'天燈祈福，獲得 $800',f:p=>{gain(p,800);}},
+ {t:'平溪放天燈太美，獲得 $500',f:p=>{gain(p,500);}},
+ {t:'淡水夕陽被讚爆，獲得 $1000',f:p=>{gain(p,1000);}},
+ {t:'烏來泡湯花費 $600',f:p=>{pay(p,600);}},
+ {t:'野柳女王頭維修，繳 $700',f:p=>{pay(p,700);}},
+ {t:'前進到板橋車站',f:p=>{moveTo(p,0);}},
+ {t:'後退 3 格',f:p=>{moveTo(p,(p.pos+28-3)%28,true);}},
+ {t:'碧潭划船罰停 1 回合',f:p=>{p.stop=1;}},
+];
+const CHANCE=[
+ {t:'九份芋圓大賣，獲得 $900',f:p=>{gain(p,900);}},
+ {t:'林口三井撿到便宜，獲得 $600',f:p=>{gain(p,600);}},
+ {t:'新莊副都心增值，獲得 $1200',f:p=>{gain(p,1200);}},
+ {t:'三重罰單，繳 $500',f:p=>{pay(p,500);}},
+ {t:'汐止塞車，罰停 1 回合',f:p=>{p.stop=1;}},
+ {t:'前進到漁人碼頭',f:p=>{moveTo(p,18);}},
+ {t:'銀行利息，每棟房子領 $200',f:p=>{let n=housesOf(p);gain(p,n*200);}},
+ {t:'房屋稅，每棟房子繳 $250',f:p=>{let n=housesOf(p);pay(p,n*250);}},
+];
+/* ===== 玩家 ===== */
+const PCOL=['#ef4444','#3b82f6','#22c55e','#f59e0b'];
+const PEMO=['🔴','🔵','🟢','🟡'];
+let players=[],turn=0,round=1,phase='setup',diceV=1,diceAnim=null,moving=null;
+let selHumans=2,selTotal=4;
+function mkPlayers(nh,nt){
+ players=[];
+ for(let i=0;i<nt;i++)players.push({id:i,name:(i<nh?'P'+(i+1):'AI'+(i-nh+1)),human:i<nh,money:10000,pos:0,alive:true,stop:0});
+ turn=0;round=1;
+ BOARD.forEach(s=>{if(s.t==='prop'){s.owner=-1;s.lv=0;}});
+}
+function aliveList(){return players.filter(p=>p.alive);}
+function asset(p){let v=p.money;BOARD.forEach(s=>{if(s.t==='prop'&&s.owner===p.id)v+=s.price+s.lv*s.up;});return v;}
+function housesOf(p){let n=0;BOARD.forEach(s=>{if(s.t==='prop'&&s.owner===p.id)n+=s.lv;});return n;}
+function gain(p,v){p.money+=v;sfx.cash();}
+function pay(p,v,creditor){
+ if(creditor&&creditor.alive){ // 過路費：付不出來就破產，剩餘現金歸債主
+  if(p.money<v){creditor.money+=Math.max(p.money,0);p.money=-1;}
+  else{p.money-=v;creditor.money+=v;}
+ }else{p.money-=v;}
+ if(p.money<0)bankrupt(p);
+}
+function bankrupt(p){
+ p.alive=false;sfx.bad();
+ BOARD.forEach(s=>{if(s.t==='prop'&&s.owner===p.id){s.owner=-1;s.lv=0;}});
+ log(p.name+' 💸 破產出局！');
+ if(aliveList().length<=1)gameOver();
+}
+function moveTo(p,idx,raw){
+ const old=p.pos;
+ if(!raw&&idx<old){p.money+=2000;} // 經過起點
+ p.pos=idx;
+}
+/* ===== 訊息列 ===== */
+let msgs=[];
+function log(m){msgs.unshift(m);if(msgs.length>6)msgs.pop();}
+/* ===== 流程 ===== */
+function cur(){return players[turn];}
+function nextTurn(){
+ if(phase==='over')return;
+ // 找下一個活著的
+ let guard=0;
+ do{turn=(turn+1)%players.length;if(turn===0){round++;if(round>25)return gameOver(true);}guard++;}while(!players[turn].alive&&guard<10);
+ const p=cur();
+ if(p.stop>0){p.stop--;log(p.name+' 在碧潭休息…');return setTimeout(nextTurn,700);}
+ updateDiceBtn();
+ if(!p.human)return setTimeout(aiTurn,800);
+}
+function updateDiceBtn(){
+ const p=cur();
+ $('diceBtn').disabled=(phase!=='play'||!p||!p.human||!p.alive);
+ $('diceBtn').style.left='800px';$('diceBtn').style.bottom='90px';$('diceBtn').style.top='auto';
+ if(p)$('diceBtn').textContent='🎲 '+p.name+' 擲骰';
+ syncHud();
+}
+function rollDice(){
+ if(phase!=='play')return;
+ const p=cur();if(!p.human||!p.alive)return;
+ doRoll(p);
+}
+function doRoll(p){
+ diceV=1+Math.floor(Math.random()*6);sfx.dice();
+ let n=0;clearInterval(diceAnim);
+ diceAnim=setInterval(()=>{diceV=1+Math.floor(Math.random()*6);if(++n>8){clearInterval(diceAnim);stepMove(p,diceV);}},90);
+}
+function stepMove(p,steps){
+ phase='moving';$('diceBtn').disabled=true;
+ let i=0;
+ const iv=setInterval(()=>{
+  p.pos=(p.pos+1)%28;
+  if(p.pos===0){p.money+=2000;}
+  sfx.move();i++;
+  if(i>=steps){clearInterval(iv);phase='play';resolve(p);}
+ },180);
+}
+function resolve(p){
+ const s=BOARD[p.pos];
+ log(p.name+' → '+s.n+'（'+diceV+'點）');
+ if(s.t==='go'){gain(p,0);return endResolve();}
+ if(s.t==='bonus'){log('🎉 漁人碼頭獎金 +$'+s.amt);gain(p,s.amt);return endResolve();}
+ if(s.t==='tax'){log('💸 繳稅 -$'+s.amt);pay(p,s.amt);if(phase==='over')return;return endResolve();}
+ if(s.t==='jail'){p.stop=1;log('🛶 碧潭停留，下回合休息');return endResolve();}
+ if(s.t==='fate'||s.t==='chance'){
+  const deck=s.t==='fate'?FATE:CHANCE;
+  const c=deck[Math.floor(Math.random()*deck.length)];
+  showCard((s.t==='fate'?'🔮 命運・':'🎁 機會・')+s.n,c.t,()=>{
+   c.f(p);
+   if(phase==='over')return;
+   syncHud();endResolve();
+  });
+  return;
+ }
+ if(s.t==='prop'){
+  if(s.owner===-1){
+   if(p.money>=s.price){askBuy(p,s);}else{showCard('💰 '+s.n,'售價 $'+s.price+'・租金 $'+s.rent+'\n'+p.name+' 現金不足，跳過',()=>endResolve());}
+   return;
+  }else if(s.owner===p.id){
+   if(s.lv<3&&p.money>=s.up){askUpgrade(p,s);}else{showCard('🏠 '+s.n,'已擁有 Lv.'+s.lv+'・租金 $'+rentOf(s),()=>endResolve());}
+   return;
+  }else{
+   const o=players[s.owner],r=rentOf(s);
+   log('💰 '+p.name+' 付過路費 $'+r+' 給 '+o.name);
+   showCard('💰 過路費',s.n+' Lv.'+s.lv+'・'+o.name+' 所有\n'+p.name+' 支付 $'+r,()=>{pay(p,r,o);if(phase==='over')return;syncHud();endResolve();});
+   return;
+  }
+ }
+ endResolve();
+}
+function endResolve(){
+ syncHud();
+ if(phase==='over')return;
+ if(aliveList().length<=1)return gameOver();
+ // 電腦回合結束自動接；真人等按骰
+ if(!cur().human){/* cur 還沒切 */ }
+ nextTurn();
+}
+function askBuy(p,s){
+ if(!p.human){ // AI 貪心：留 1000 預備金就買
+  if(p.money>=s.price+1000){p.money-=s.price;s.owner=p.id;log('🤖 '+p.name+' 買下 '+s.n);sfx.cash();}
+  syncHud();return endResolve();
+ }
+ showCard('🏠 '+s.n,'售價 $'+s.price+'・租金 $'+s.rent+'・加蓋 $'+s.up+'/級\n'+p.name+' 現金 $'+p.money,
+  null,[{t:'✅ 買下',fn:()=>{p.money-=s.price;s.owner=p.id;sfx.cash();syncHud();endResolve();},cls:'btn-go'},{t:'跳過',fn:()=>endResolve(),cls:'btn-ghost'}]);
+}
+function askUpgrade(p,s){
+ if(!p.human){
+  if(Math.random()<0.45&&p.money>=s.up+1200){p.money-=s.up;s.lv++;log('🤖 '+p.name+' 加蓋 '+s.n+' Lv.'+s.lv);sfx.cash();}
+  syncHud();return endResolve();
+ }
+ showCard('🏠 '+s.n,'目前 Lv.'+s.lv+'・租金 $'+rentOf(s)+'\n加蓋 → Lv.'+(s.lv+1)+'，費用 $'+s.up+'\n'+p.name+' 現金 $'+p.money,
+  null,[{t:'🔨 加蓋 $'+s.up,fn:()=>{p.money-=s.up;s.lv++;sfx.cash();syncHud();endResolve();},cls:'btn-go'},{t:'跳過',fn:()=>endResolve(),cls:'btn-ghost'}]);
+}
+function aiTurn(){
+ const p=cur();
+ if(phase!=='play'||p.human||!p.alive)return;
+ doRoll(p);
+}
+/* ===== 結算 ===== */
+function gameOver(timeout){
+ phase='over';sfx.win();
+ const list=aliveList().slice().sort((a,b)=>asset(b)-asset(a));
+ const champ=list[0];
+ saveBest(asset(champ));
+ let txt=list.map((p,i)=>(i===0?'👑 ':'・ ')+p.name+' 資產 $'+asset(p)+(p.alive?'':'（破產）')).join('\n');
+ showCard('🏁 遊戲結束'+(timeout?'（25回合到）':''),'冠軍：'+champ.name+' 🎉\n\n'+txt+'\n\n最高資產紀錄 $'+BEST,
+  null,[{t:'↻ 再來一局',fn:()=>{hidePanel();showSetup();},cls:'btn-go'},{t:'🏠 大廳',fn:()=>{location.href='index.html';},cls:'btn-ghost'}]);
+}
+/* ===== 面板 ===== */
+function showPanel(){ $('panel').style.display='flex';}
+function hidePanel(){ $('panel').style.display='none';$('c-sel').innerHTML='';$('c-row').innerHTML='';}
+function showCard(title,sub,onOk,btns){
+ $('c-title').textContent=title;$('c-sub').textContent=sub||'';
+ const row=$('c-row');row.innerHTML='';$('c-sel').innerHTML='';
+ if(btns){btns.forEach(b=>{const el=document.createElement('button');el.textContent=b.t;el.className=b.cls||'btn-go';el.onclick=()=>{hidePanel();b.fn&&b.fn();};row.appendChild(el);});}
+ else{const el=document.createElement('button');el.textContent='確定';el.className='btn-go';el.onclick=()=>{hidePanel();onOk&&onOk();};row.appendChild(el);}
+ showPanel();
+}
+function showSetup(){
+ phase='setup';
+ $('c-title').textContent='🎲 新北大富翁';
+ $('c-sub').textContent='同機輪流・28格環新北・讓對手破產吧！\n起點經過領 $2000・25回合比資產';
+ const sel=$('c-sel');sel.innerHTML='';
+ sel.appendChild(mkSel('真人數',[1,2],selHumans,v=>{selHumans=v;refreshSubs();}));
+ const sub=document.createElement('div');sub.id='c-sub2';sub.className='sel';sel.appendChild(sub);
+ const row=$('c-row');row.innerHTML='';
+ refreshSubs();
+ const go=document.createElement('button');go.textContent='▶ 開局';go.className='btn-go';
+ go.onclick=()=>{if(selTotal<selHumans)selTotal=selHumans;hidePanel();mkPlayers(selHumans,selTotal);phase='play';msgs=[];log('🎲 開局！'+selHumans+'真人＋'+(selTotal-selHumans)+'AI');updateDiceBtn();if(!cur().human)setTimeout(aiTurn,600);};
+ row.appendChild(go);
+ showPanel();
+ function refreshSubs(){
+  const s2=$('c-sub2');if(!s2)return;s2.innerHTML='';
+  const opts=selHumans===1?[2,3,4]:[2,3,4];
+  if(!opts.includes(selTotal))selTotal=Math.max(selHumans,2);
+  const lab=document.createElement('span');lab.textContent='總人數';lab.style.alignSelf='center';s2.appendChild(lab);
+  opts.forEach(n=>{const b=document.createElement('button');b.textContent=n+'人';if(n===selTotal)b.classList.add('on');b.onclick=()=>{selTotal=n;refreshSubs();};s2.appendChild(b);});
+ }
+}
+function mkSel(label,opts,val,cb){
+ const d=document.createElement('div');d.className='sel';
+ const lab=document.createElement('span');lab.textContent=label;lab.style.alignSelf='center';d.appendChild(lab);
+ opts.forEach(n=>{const b=document.createElement('button');b.textContent=n+(label==='真人數'?'位真人':'');if(n===val)b.classList.add('on');b.onclick=()=>{d.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');cb(n);};d.appendChild(b);});
+ return d;
+}
+/* ===== HUD ===== */
+function syncHud(){
+ const p=players[turn];
+ $('h-turn').textContent=p?(p.name+'・R'+round):'—';
+ $('h-money').textContent=p?('$'+p.money):'—';
+ $('h-best').textContent=BEST>0?('$'+BEST):'—';
+}
+/* ===== 繪圖 ===== */
+function drawBoard(){
+ // 底：混合棋盤圖（有圖用圖）
+ if(bgOK){try{ctx.drawImage(bgImg,BX,BY,720,720);}catch(e){paintFallback();}}
+ else paintFallback();
+ // 中央資訊
+ ctx.fillStyle='rgba(255,253,244,.94)';
+ roundRect(120,170,520,380,18);ctx.fill();
+ ctx.fillStyle='#0b1622';ctx.textAlign='center';
+ ctx.font='900 64px "Noto Sans TC",sans-serif';
+ ctx.fillText('新北大富翁',380,260);
+ ctx.font='700 26px "Noto Sans TC",sans-serif';ctx.fillStyle='#b45309';
+ ctx.fillText('環遊新北 28 格',380,305);
+ // 骰子
+ ctx.font='900 90px sans-serif';ctx.fillStyle='#0b1622';
+ ctx.fillText('🎲'.replace('🎲','')+diceFace(diceV),380,430);
+ ctx.font='700 22px "Noto Sans TC",sans-serif';ctx.fillStyle='#334155';
+ const p=cur();
+ ctx.fillText(p?('輪到 '+p.name+'・第 '+round+' 回合'):'',380,480);
+ // 排行
+ ctx.font='800 20px "Noto Sans TC",sans-serif';ctx.textAlign='left';
+ players.forEach((q,i)=>{
+  ctx.fillStyle=q.alive?(i===turn?'#b45309':'#334155'):'#94a3b8';
+  ctx.fillText(PEMO[i]+' '+q.name+' $'+q.money+(q.alive?'':' 💸'),190,520+i*30);
+ });
+ // 格子
+ for(let i=0;i<28;i++){
+  const r=cellRect(i),s=BOARD[i];
+  ctx.fillStyle=s.t==='prop'?'#fffdf4':(s.t==='go'||s.t==='bonus'?'#fef3c7':(s.t==='jail'||s.t==='tax'?'#e2e8f0':'#ede9fe'));
+  ctx.fillRect(r.x+1,r.y+1,r.w-2,r.h-2);
+  ctx.strokeStyle=i===(cur()?cur().pos:-1)?'#ff9f1c':'rgba(11,22,34,.35)';
+  ctx.lineWidth=i===(cur()?cur().pos:-1)?4:1.5;
+  ctx.strokeRect(r.x+1,r.y+1,r.w-2,r.h-2);
+  // 色帶
+  ctx.fillStyle=s.c||'#94a3b8';ctx.fillRect(r.x+1,r.y+1,r.w-2,12);
+  ctx.fillStyle='#0b1622';ctx.textAlign='center';
+  ctx.font='800 17px "Noto Sans TC",sans-serif';
+  const nm=s.n.length>4?s.n.slice(0,4):s.n;
+  ctx.fillText(nm,r.x+r.w/2,r.y+36);
+  ctx.font='700 13px sans-serif';ctx.fillStyle='#475569';
+  if(s.t==='prop'){
+   ctx.fillText('$'+s.price,r.x+r.w/2,r.y+56);
+   if(s.owner>=0){
+    ctx.font='900 15px sans-serif';
+    ctx.fillText(PEMO[s.owner]+'Lv'+s.lv,r.x+r.w/2,r.y+76);
+   }
+  }else{
+   ctx.fillText(s.sub||'',r.x+r.w/2,r.y+58,80);
+   if(s.t==='chance')ctx.fillText('❓',r.x+r.w/2,r.y+78);
+   if(s.t==='fate')ctx.fillText('🔮',r.x+r.w/2,r.y+78);
+   if(s.t==='go')ctx.fillText('🚂',r.x+r.w/2,r.y+78);
+   if(s.t==='jail')ctx.fillText('🛶',r.x+r.w/2,r.y+78);
+   if(s.t==='bonus')ctx.fillText('🎣',r.x+r.w/2,r.y+78);
+   if(s.t==='tax')ctx.fillText('💸',r.x+r.w/2,r.y+78);
+  }
+ }
+ // 棋子
+ players.forEach((q,qi)=>{
+  if(!q.alive)return;
+  const r=cellRect(q.pos);
+  const ox=(qi%2)*26-13,oy=Math.floor(qi/2)*26-13;
+  ctx.font='30px sans-serif';ctx.textAlign='center';
+  ctx.fillText(PEMO[qi],r.x+r.w/2+ox,r.y+r.h/2+22+oy);
+ });
+ // 右側訊息
+ ctx.fillStyle='rgba(8,20,32,.85)';roundRect(760,60,440,480,14);ctx.fill();
+ ctx.fillStyle='#ffd166';ctx.font='900 22px "Noto Sans TC",sans-serif';ctx.textAlign='left';
+ ctx.fillText('📜 實況',784,100);
+ ctx.font='700 17px "Noto Sans TC",sans-serif';ctx.fillStyle='#e2e8f0';
+ msgs.forEach((m,i)=>{ctx.fillText(trunc(m,24),784,134+i*30);});
+ // 右下操作提示
+ ctx.fillStyle='#9fc3dd';ctx.font='700 16px "Noto Sans TC",sans-serif';
+ ctx.fillText('經過起點 +$2000・25回合比資產',784,580);
+ ctx.fillText('房子 Lv0~3・租金 x1/x2/x3.5/x5',784,606);
+}
+function paintFallback(){
+ const g=ctx.createLinearGradient(BX,BY,BX+720,BY+720);
+ g.addColorStop(0,'#dbeafe');g.addColorStop(.5,'#fef3c7');g.addColorStop(1,'#dcfce7');
+ ctx.fillStyle=g;ctx.fillRect(BX,BY,720,720);
+ ctx.strokeStyle='rgba(11,22,34,.08)';ctx.lineWidth=1;
+ for(let x=BX;x<=BX+720;x+=45){ctx.beginPath();ctx.moveTo(x,BY);ctx.lineTo(x,BY+720);ctx.stroke();}
+ for(let y=BY;y<=BY+720;y+=45){ctx.beginPath();ctx.moveTo(BX,y);ctx.lineTo(BX+720,y);ctx.stroke();}
+}
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function trunc(s,n){return s.length>n?s.slice(0,n-1)+'…':s;}
+function diceFace(v){return['','⚀','⚁','⚂','⚃','⚄','⚅'][v]||'🎲';}
+/* ===== 主迴圈 ===== */
+function loop(){ctx.clearRect(0,0,W,H);ctx.fillStyle='#0b1622';ctx.fillRect(0,0,W,H);drawBoard();requestAnimationFrame(loop);}
+/* ===== 綁定 ===== */
+$('diceBtn').onclick=rollDice;
+$('b-restart').onclick=()=>{showSetup();};
+$('b-home').onclick=()=>{location.href='index.html';};
+addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){if($('panel').style.display!=='flex')rollDice();}});
+syncHud();showSetup();requestAnimationFrame(loop);
+</script>
+</body>
+</html>

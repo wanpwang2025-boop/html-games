@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>新北搖搖合輯 | Shake Party</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#0b1622;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden}
+#app{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;aspect-ratio:16/9;width:min(100vw,177.78vh);max-height:100vh;border-radius:14px;overflow:hidden;box-shadow:0 20px 80px rgba(0,0,0,.6);background:radial-gradient(1000px 500px at 50% 0%,#1b3a55 0%,#0b1622 60%);color:#fff}
+#hud{position:absolute;top:10px;left:10px;display:flex;gap:8px;z-index:5;flex-wrap:wrap;max-width:75%}
+.pill{background:rgba(8,20,32,.85);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800}
+.pill b{color:#ffd166}
+#btns{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:6}
+#btns button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:10px;padding:7px 14px;font-size:14px;font-weight:800;cursor:pointer}
+#screen{position:absolute;inset:0;padding:56px 24px 40px;overflow:auto;text-align:center}
+h1{font-size:34px;margin-bottom:6px}
+h2{font-size:26px;margin-bottom:6px}
+.sub{color:#9fc3dd;font-size:14px;line-height:1.7;margin:8px auto;max-width:640px}
+.card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:20px 22px;margin:14px auto;max-width:640px}
+.big{font-size:20px;font-weight:900}
+.btn{border:none;border-radius:12px;padding:13px 34px;font-size:18px;font-weight:900;cursor:pointer;margin:8px 6px}
+.btn-go{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200}
+.btn-ghost{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.btn:disabled{filter:grayscale(.8);opacity:.5}
+.sel{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap}
+.sel button{border:2px solid rgba(255,255,255,.25);background:rgba(255,255,255,.07);color:#fff;border-radius:10px;padding:8px 18px;font-size:16px;font-weight:800;cursor:pointer}
+.sel button.on{border-color:#ffd166;background:rgba(255,209,102,.2)}
+#powerWrap{max-width:560px;margin:16px auto}
+#powerBarOuter{background:rgba(255,255,255,.12);border-radius:999px;height:34px;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.25)}
+#powerZone{position:absolute;top:0;bottom:0;background:rgba(74,222,128,.35);border-left:2px solid #4ade80;border-right:2px solid #4ade80}
+#powerBar{height:100%;width:0%;background:linear-gradient(90deg,#4ade80,#ffd166,#ef4444);border-radius:999px;transition:width .05s linear}
+#powerTxt{font-size:44px;font-weight:900;color:#ffd166;margin-top:6px}
+.poe{font-size:64px;display:inline-block;margin:0 10px;transition:transform .15s}
+.shaking .poe{animation:shk .12s infinite}
+@keyframes shk{0%{transform:translate(0,0) rotate(-8deg)}50%{transform:translate(3px,-6px) rotate(8deg)}100%{transform:translate(-3px,3px) rotate(-4deg)}}
+.floors{display:flex;flex-direction:column-reverse;gap:3px;max-width:300px;margin:12px auto;min-height:120px;justify-content:flex-start}
+.floor{background:linear-gradient(180deg,#fbbf24,#b45309);border-radius:6px;padding:8px;font-weight:900;color:#3a2200}
+.score{font-size:15px;color:#ffe9a8;margin-top:8px;line-height:1.8}
+.bingo{display:grid;grid-template-columns:repeat(3,84px);gap:8px;justify-content:center;margin:14px auto}
+.cell{background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.3);border-radius:12px;height:64px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900}
+.cell.hit{background:rgba(74,222,128,.35);border-color:#4ade80;color:#bbf7d0}
+.cell.win{background:rgba(255,209,102,.4);border-color:#ffd166}
+.balls{font-size:15px;color:#cfe0ef;min-height:24px;margin-top:6px}
+#tip{position:absolute;bottom:8px;left:0;right:0;text-align:center;color:#6b8aa3;font-size:12.5px;z-index:5}
+.warn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.5);border-radius:12px;padding:10px 16px;max-width:640px;margin:10px auto;font-size:13.5px;line-height:1.7;color:#fecaca}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+<div id="hud"><div class="pill">📳 <b id="h-mode">—</b></div><div class="pill">👤 <b id="h-player">—</b></div><div class="pill">🏆 <b id="h-best">—</b></div></div>
+<div id="btns"><button id="b-restart">↻</button><button id="b-home">🏠</button></div>
+<div id="screen"></div>
+<div id="tip">建議 Android Chrome 遊玩（感測器＋震動全支援）・iPhone 需按鈕授權、無震動・桌機請晃滑鼠/連打空白鍵</div>
+</div></div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const scr=$('screen');
+/* ===== 音效＋震動 ===== */
+let AC=null;
+function beep(f,d=.1,type='triangle',v=.07){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+function vib(p){try{if(navigator.vibrate)navigator.vibrate(p);}catch(e){}}
+/* ===== 存檔 ===== */
+const KEY='hg-shake-best';let BEST=0;
+try{BEST=+(localStorage.getItem(KEY)||0);}catch(e){}
+function saveBest(v){if(v>BEST){BEST=v;try{localStorage.setItem(KEY,String(v));}catch(e){}}syncHud();}
+/* ============================================================
+   共用搖引擎 Shake：power 0~100，多輸入統一刻度
+   motion（三軸加速度）/ mouse（滑鼠位移）/ key（空白鍵）三路並行
+   ============================================================ */
+const Shake={
+ power:0, mode:'偵測中…', live:false,
+ init(){
+  this.live=true;
+  // 1) 動作感測
+  if(typeof DeviceMotionEvent!=='undefined'){
+   if(typeof DeviceMotionEvent.requestPermission==='function'){this.mode='iPhone（需授權）';}
+   else{this.mode='Android 完整版';window.addEventListener('devicemotion',e=>this.onMotion(e));}
+  }else{this.mode='桌機降級版';}
+  // 2) 滑鼠 fallback（全平台並行，桌機主力）
+  let lx=null,ly=null;
+  window.addEventListener('mousemove',e=>{
+   if(lx===null){lx=e.clientX;ly=e.clientY;return;}
+   const d=Math.hypot(e.clientX-lx,e.clientY-ly);lx=e.clientX;ly=e.clientY;
+   this.power=Math.min(100,this.power+d*0.12);
+  });
+  // 3) 空白鍵 fallback
+  window.addEventListener('keydown',e=>{
+   if(e.code==='Space'){this.power=Math.min(100,this.power+7);e.preventDefault();}
+  });
+  // 衰減迴圈
+  const tick=()=>{if(!this.live)return;this.power*=0.90;requestAnimationFrame(tick);};
+  requestAnimationFrame(tick);
+  syncHud();
+ },
+ async iosAuth(){
+  try{
+   const r=await DeviceMotionEvent.requestPermission();
+   if(r==='granted'){this.mode='iPhone 已授權';window.addEventListener('devicemotion',e=>this.onMotion(e));syncHud();return true;}
+  }catch(e){}
+  return false;
+ },
+ onMotion(e){
+  let m=0;
+  const a=e.acceleration;
+  if(a&&(a.x!==null&&a.x!==undefined)){m=Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z);}
+  else if(e.accelerationIncludingGravity){const g=e.accelerationIncludingGravity;m=Math.max(0,Math.hypot(g.x,g.y,g.z)-9.8);}
+  this.power=Math.min(100,this.power+m*1.6);
+ },
+ // 取樣一段時間，回傳 {avg,peak}；附即時 power bar 更新回呼
+ sample(ms,onTick){
+  return new Promise(res=>{
+   let sum=0,n=0,peak=0;const t0=performance.now();
+   const iv=setInterval(()=>{
+    sum+=this.power;n++;peak=Math.max(peak,this.power);
+    if(onTick)onTick(this.power);
+    if(performance.now()-t0>=ms){clearInterval(iv);res({avg:sum/Math.max(n,1),peak});}
+   },50);
+  });
+ }
+};
+function syncHud(){$('h-mode').textContent=Shake.mode||'—';$('h-best').textContent=BEST>0?BEST+' 分':'—';}
+/* ===== 賽制狀態 ===== */
+let humans=2,players=[],turn=0,phase='setup';
+function mkPlayers(n){players=[];for(let i=0;i<n;i++)players.push({name:'P'+(i+1),s1:0,s2:0,s3:0});turn=0;}
+function total(p){return p.s1+p.s2+p.s3;}
+function nextPlayer(){turn=(turn+1)%players.length;}
+function passDevice(txt,btn,fn){
+ scr.innerHTML='<h2>📱 換手！</h2><div class="card"><div class="big">'+players[turn].name+' 請拿好手機</div><div class="sub">'+txt+'</div></div><button class="btn btn-go" id="go">'+btn+'</button>';
+ $('go').onclick=fn;
+ $('h-player').textContent=players[turn].name;
+}
+/* ===== 第一關：擲筊大賽 =====
+   搖＝誠意(帥氣加成)，結果＝神意(隨機)。連續聖筊有加成。 */
+const L1={throws:3};
+function l1intro(){
+ passDevice('第一關・<b>擲筊大賽</b><br>每人 '+L1.throws+' 筊：搖出誠意→按擲！聖筊100分，連莊加成！','🙏 '+players[turn].name+' 上場',()=>l1turn());
+}
+function l1turn(){
+ const p=players[turn];
+ scr.innerHTML='<h2>🙏 擲筊・'+p.name+'</h2><div class="sub">剩餘 '+p._t+' 筊・目前本關 '+p.s1+' 分'+(p._streak>0?'・<b>'+p._streak+'連莊中🔥</b>':'')+'</div>'
+ +'<div class="card" id="poeCard"><span class="poe" id="poe1">🌙</span><span class="poe" id="poe2">🌙</span><div class="big" id="poeTxt">合掌，心裡默念願望…</div></div>'
+ +'<div id="powerWrap"><div id="powerBarOuter"><div id="powerBar"></div></div><div id="powerTxt">0</div><div class="sub">用力搖手機（桌機：晃滑鼠/空白鍵）累積誠意，再按擲！</div></div>'
+ +'<button class="btn btn-go" id="cast">🎲 擲！</button>';
+ const bar=$('powerBar'),txt=$('powerTxt');
+ const iv=setInterval(()=>{bar.style.width=Shake.power+'%';txt.textContent=Math.round(Shake.power);if(!document.body.contains(bar))clearInterval(iv);},60);
+ $('cast').onclick=()=>{
+  clearInterval(iv);
+  const style=Math.round(Shake.power);Shake.power=0;
+  // 擲筊動畫
+  $('poeCard').classList.add('shaking');$('poeTxt').textContent='筊在飛…';vib(80);beep(600,.15,'square',.06);
+  setTimeout(()=>{
+   $('poeCard').classList.remove('shaking');
+   const r=Math.random();
+   let kind,emo,score;
+   if(r<0.38){kind='聖筊';emo='😇';score=100+(p._streak>=2?150:(p._streak>=1?50:0));p._streak=(p._streak||0)+1;}
+   else if(r<0.75){kind='笑筊';emo='😅';score=10;p._streak=0;}
+   else{kind='陰筊';emo='😈';score=0;p._streak=0;}
+   const bonus=Math.round(style/10); // 誠意加成 0~10
+   p.s1+=score+bonus;
+   $('poe1').textContent=kind==='笑筊'?'🌕':(kind==='陰筊'?'🌑':'🌗');
+   $('poe2').textContent=kind==='笑筊'?'🌕':(kind==='陰筊'?'🌑':'🌘');
+   $('poeTxt').textContent=emo+' '+kind+'！+' +(score+bonus)+' 分（誠意+'+bonus+'）';
+   if(kind==='聖筊'){vib([100,50,200]);[523,659,784].forEach((f,i)=>setTimeout(()=>beep(f,.15,'triangle',.08),i*120));}
+   else if(kind==='陰筊'){vib(200);beep(200,.3,'sawtooth',.07);}
+   p._t--;
+   setTimeout(()=>{
+    if(p._t>0)l1turn();
+    else{nextPlayer();if(turn===0)l2intro();else l1intro();}
+   },1600);
+  },900);
+ };
+}
+function l1start(){players.forEach(p=>{p._t=L1.throws;p._streak=0;p.s1=0;});turn=0;l1intro();}
+/* ===== 第二關：工頭不要搖 =====
+   綠區(15~60)吊料上樓，爆紅線(>85)塌樓扣半。 */
+const L2={tries:3,goal:10};
+function l2intro(){
+ passDevice('第二關・<b>工頭不要搖</b><br>搖 3 秒吊建材：力度維持在 <b>綠區</b> 上樓，衝破紅線就塌！每人 '+L2.tries+' 次','🦺 '+players[turn].name+' 上工',()=>l2turn());
+}
+function l2turn(){
+ const p=players[turn];
+ if(p._f===undefined){p._f=0;p._a=0;}
+ scr.innerHTML='<h2>🦺 工頭不要搖・'+p.name+'</h2><div class="sub">第 '+(p._a+1)+' 次吊料・已蓋 '+p._f+' 層</div>'
+ +'<div class="floors" id="fl"></div>'
+ +'<div id="powerWrap"><div id="powerBarOuter"><div id="powerZone" style="left:15%;right:40%"></div><div id="powerBar"></div></div><div class="sub">綠區＝安全・紅線(85)＝塌！按開始後搖 3 秒</div></div>'
+ +'<button class="btn btn-go" id="lift">🏗 開始吊料！</button>';
+ paintFloors(p._f);
+ function paintFloors(n){const fl=$('fl');fl.innerHTML='';for(let i=0;i<Math.max(n,1);i++){const d=document.createElement('div');d.className='floor';d.textContent=i<n?('🧱 '+ (i+1) +'F'):'（空地）';fl.appendChild(d);}}
+ $('lift').onclick=async e=>{
+  e.target.disabled=true;
+  const bar=$('powerBar');
+  const r=await Shake.sample(3000,v=>{bar.style.width=v+'%';});
+  let msg;
+  if(r.peak>85){ // 塌樓
+   const lost=Math.ceil(p._f/2);p._f-=lost;
+   msg='💥 塌了！工頭：「叫你不要搖！」-'+lost+' 層';vib([300,100,300]);beep(150,.5,'sawtooth',.09);
+  }else if(r.avg>=15&&r.avg<=60){
+   const add=r.avg>40?2:1;p._f=Math.min(L2.goal,p._f+add);
+   msg='✅ 穩穩上樓 +'+add+' 層（平均 '+Math.round(r.avg)+'）';vib(100);beep(880,.15,'sine',.08);
+  }else if(r.avg<15){msg='😴 沒吃飯喔？幾乎沒動，不上不下';beep(330,.2,'triangle',.06);}
+  else{msg='⚠️ 太猛了但沒爆，+1 層，下次收斂點';p._f=Math.min(L2.goal,p._f+1);}
+  paintFloors(p._f);
+  scr.innerHTML+='<div class="card"><div class="big">'+msg+'</div></div>';
+  p._a++;
+  setTimeout(()=>{if(p._a>=L2.tries){p.s2=p._f*100;nextPlayer();if(turn===0)l3intro();else l2intro();}else l2turn();},1700);
+ };
+}
+/* ===== 第三關：搖彩球賓果 =====
+   1~25 號，卡上 9 個，搖 10 球，連線得分。 */
+const L3={draws:10};
+function l3intro(){
+ passDevice('第三關・<b>搖彩球賓果</b><br>大力搖滿 <b>60</b> 即開出一球，共 '+L3.draws+' 球填 3×3 卡，連線一條 200 分','🎱 '+players[turn].name+' 搖球',()=>l3turn());
+}
+function l3turn(){
+ const p=players[turn];
+ if(!p._card){ // 發卡：1~25 取 9
+  const pool=[];for(let i=1;i<=25;i++)pool.push(i);
+  p._card=[];for(let i=0;i<9;i++)p._card.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+  p._drawn=[];p._marks=new Set();p._d=0;
+ }
+ render();
+ function render(){
+  scr.innerHTML='<h2>🎱 搖彩球・'+p.name+'</h2><div class="sub">已開 '+p._d+'/'+L3.draws+' 球</div>'
+  +'<div class="bingo">'+p._card.map(n=>'<div class="cell'+(p._marks.has(n)?' hit':'')+'">'+n+'</div>').join('')+'</div>'
+  +'<div id="powerWrap"><div id="powerBarOuter"><div id="powerBar"></div></div><div id="powerTxt">0</div><div class="sub">大力搖手機衝破 60 開球！</div></div>'
+  +'<div class="balls">開出：'+(p._drawn.join('・')||'—')+'</div>'
+  +'<div id="msg"></div>';
+  const bar=$('powerBar'),txt=$('powerTxt');
+  const iv=setInterval(()=>{
+   if(!document.body.contains(bar)){clearInterval(iv);return;}
+   bar.style.width=Shake.power+'%';txt.textContent=Math.round(Shake.power);
+   if(Shake.power>=60){ // 開球！
+    clearInterval(iv);Shake.power=0;drawBall();
+   }
+  },60);
+  // 桌機保底：按鈕直接開（力度隨機，當作搖的）
+  const b=document.createElement('button');b.className='btn btn-ghost';b.textContent='🎱 桌機代搖';
+  b.onclick=()=>{clearInterval(iv);drawBall();};
+  scr.appendChild(b);
+ }
+ function drawBall(){
+  const left=[];for(let i=1;i<=25;i++)if(!p._drawn.includes(i))left.push(i);
+  const n=left[Math.floor(Math.random()*left.length)];
+  p._drawn.push(n);p._d++;vib(120);beep(700+Math.random()*400,.12,'square',.06);
+  if(p._card.includes(n))p._marks.add(n);
+  if(p._d>=L3.draws){
+   const lines=countLines(p);
+   p.s3=100+lines*200;
+   renderFinal(lines);
+  }else render();
+ }
+ function renderFinal(lines){
+  scr.innerHTML='<h2>🎱 '+p.name+' 結算</h2><div class="card"><div class="bingo">'
+  +p._card.map(n=>'<div class="cell'+(p._marks.has(n)?' hit':'')+'">'+n+'</div>').join('')
+  +'</div><div class="big">'+lines+' 條連線！+'+p.s3+' 分</div></div>';
+  if(lines>=2){vib([150,80,150,80,300]);[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.15,'triangle',.08),i*120));}
+  setTimeout(()=>{nextPlayer();if(turn===0)final();else l3intro();},1800);
+ }
+}
+function countLines(p){
+ const c=p._card,m=n=>p._marks.has(n);let L=0;
+ for(let r=0;r<3;r++)if(m(c[r*3])&&m(c[r*3+1])&&m(c[r*3+2]))L++;
+ for(let k=0;k<3;k++)if(m(c[k])&&m(c[k+3])&&m(c[k+6]))L++;
+ if(m(c[0])&&m(c[4])&&m(c[8]))L++;
+ if(m(c[2])&&m(c[4])&&m(c[6]))L++;
+ return L;
+}
+/* ===== 總決賽 ===== */
+function final(){
+ phase='over';
+ const rank=players.slice().sort((a,b)=>total(b)-total(a));
+ const champ=rank[0];saveBest(total(champ));
+ scr.innerHTML='<h1>🏆 '+champ.name+' 奪冠！</h1><div class="card">'
+ +rank.map((p,i)=>'<div class="score">'+(i===0?'👑 ':'・ ')+p.name+'：擲筊 '+p.s1+'＋工頭 '+p.s2+'＋彩球 '+p.s3+'＝<b>'+total(p)+'</b> 分</div>').join('')
+ +'<div class="sub">最高總分紀錄 '+BEST+' 分</div></div>'
+ +'<button class="btn btn-go" id="again">↻ 再來一局</button><button class="btn btn-ghost" id="home">🏠 大廳</button>';
+ vib([200,100,200,100,400]);[523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>beep(f,.2,'triangle',.08),i*140));
+ $('again').onclick=()=>showSetup();
+ $('home').onclick=()=>{location.href='index.html';};
+}
+/* ===== 開場＋感測器 ===== */
+function showSetup(){
+ phase='setup';
+ scr.innerHTML='<h1>📳 新北搖搖合輯</h1><div class="sub">擲筊大賽 → 工頭不要搖 → 搖彩球賓果<br>三關總分比冠軍・同機輪流・神意＋技術＋運氣</div>'
+ +'<div class="card"><div class="big">幾位玩家？</div><div class="sel" id="sel"></div>'
+ +'<div id="sensor" style="margin-top:10px"></div></div>'
+ +'<button class="btn btn-go" id="start">▶ 開賽</button>';
+ const sel=$('sel');
+ [2,3,4].forEach(n=>{const b=document.createElement('button');b.textContent=n+'人';if(n===humans)b.classList.add('on');b.onclick=()=>{humans=n;sel.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');};sel.appendChild(b);});
+ const sen=$('sensor');
+ if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+  sen.innerHTML='<div class="warn">📱 偵測到 iPhone：請按下面授權才能用搖晃感測（Safari 規定）</div><button class="btn btn-ghost" id="auth">啟用感測器</button>';
+  $('auth').onclick=async()=>{const ok=await Shake.iosAuth();sen.innerHTML=ok?'✅ 感測器已啟用！':'⚠️ 未授權，將使用桌機模式（晃滑鼠/空白鍵）';};
+ }else if(typeof DeviceMotionEvent!=='undefined'){
+  sen.innerHTML='<div class="sub">✅ Android 感測器就緒＋震動支援</div>';
+ }else{
+  sen.innerHTML='<div class="warn">💻 桌機模式：晃動滑鼠或連打空白鍵代替搖晃</div>';
+ }
+ $('start').onclick=()=>{mkPlayers(humans);phase='play';$('h-player').textContent=players[0].name;l1start();};
+}
+$('b-restart').onclick=()=>showSetup();
+$('b-home').onclick=()=>{location.href='index.html';};
+Shake.init();syncHud();showSetup();
+</script>
+</body>
+</html>
