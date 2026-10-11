@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>紫微斗數排盤助手｜專業命盤・大限流年・格局解說</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:#0b1622;color:#f2f6fa;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
+#app{max-width:1120px;margin:0 auto;padding:28px 18px 60px;background:radial-gradient(1000px 500px at 50% 0%,#1b3a55 0%,#0b1622 60%)}
+header{text-align:center}
+header h1{font-size:32px;letter-spacing:1px}
+header p{color:#9fc3dd;margin-top:6px;font-size:14px;line-height:1.7}
+.notice{background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.45);color:#ffe9a8;border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.75;margin:14px 0}
+.notice b{color:#ffd166}
+.panel{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:18px;margin-bottom:16px}
+.panel h2{font-size:18px;margin-bottom:10px;color:#ffd166}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+label{font-size:13px;color:#9fc3dd;display:block;margin-bottom:4px}
+input,select{background:#0e1e30;color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:9px 12px;font-size:15px}
+button.go{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200;font-weight:800;border:none;border-radius:10px;padding:10px 22px;font-size:15px;cursor:pointer}
+button.go:hover{filter:brightness(1.08)}
+button.sub{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:9px 14px;font-size:14px;cursor:pointer}
+.tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:16px 0}
+.tabs button{border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;border-radius:999px;padding:8px 20px;font-size:14px;font-weight:800;cursor:pointer}
+.tabs button.on{background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200;border-color:transparent}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:12px}
+.card{background:rgba(8,20,32,.78);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:14px 16px}
+.card h3{font-size:15px;color:#8fd6ff;margin-bottom:8px}
+.card p,.card li{font-size:13.5px;line-height:1.8;color:#dce8f2}
+.card ul{padding-left:18px}
+.big{font-size:22px;font-weight:800}
+.yi{color:#7dff9e;font-weight:700}.ji{color:#ff9d9d;font-weight:700}.mid{color:#ffe9a8;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
+th,td{border:1px solid rgba(255,255,255,.18);padding:7px 8px;text-align:center;line-height:1.6}
+th{background:rgba(255,209,102,.15);color:#ffd166}
+td.hl{background:rgba(255,209,102,.14)}
+a{color:#8fd6ff}
+/* 命盤 4x4 */
+#chart{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.gong{background:rgba(8,20,32,.85);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:10px;min-height:168px;position:relative;display:flex;flex-direction:column}
+.gong.ming{border-color:#ffd166;box-shadow:0 0 0 1px #ffd166 inset}
+.gong.shen{border-color:#8fd6ff}
+.gong .gt{font-size:14px;font-weight:900;color:#ffd166;display:flex;justify-content:space-between;align-items:center}
+.gong .gz{font-size:12px;color:#9fc3dd}
+.gong .stars{margin-top:6px;font-size:13px;line-height:1.65}
+.gong .stars .m{color:#ffd166;font-weight:800}
+.gong .stars .a{color:#8fd6ff}
+.gong .stars .s{color:#c9b8ff}
+.gong .stars .h{color:#7dff9e}
+.gong .foot{margin-top:auto;font-size:11.5px;color:#9fc3dd;line-height:1.6;border-top:1px dashed rgba(255,255,255,.15);padding-top:4px}
+.gong .dx{font-size:11.5px;color:#ffe9a8}
+#centerbox{grid-column:2/4;grid-row:2/4;background:linear-gradient(180deg,#13293f,#0b1622);border:1px solid rgba(255,209,102,.5);border-radius:12px;padding:14px;text-align:center;display:flex;flex-direction:column;justify-content:center}
+#centerbox .t{font-size:20px;font-weight:900;color:#ffd166}
+#centerbox .s{font-size:13px;color:#dce8f2;line-height:1.8;margin-top:6px}
+.tag{display:inline-block;border-radius:99px;padding:1px 8px;font-size:11.5px;font-weight:800;margin:1px 2px;border:1px solid rgba(255,255,255,.25)}
+.t-lu{background:rgba(67,233,123,.2);color:#7dff9e}.t-quan{background:rgba(143,214,255,.2);color:#8fd6ff}.t-ke{background:rgba(255,209,102,.2);color:#ffe9a8}.t-ji{background:rgba(255,100,100,.22);color:#ff9d9d}
+footer{text-align:center;color:#6b8aa3;font-size:12.5px;margin-top:26px;line-height:1.9}
+@media(max-width:720px){#chart{grid-template-columns:repeat(2,1fr)}#centerbox{grid-column:1/3;grid-row:auto}header h1{font-size:25px}}
+@media print{.tabs,.row,footer,header p,.notice,#setbar,#btnbar{display:none!important}body{background:#fff;color:#000}#app{background:#fff}.panel,.card,.gong,#centerbox{background:#fff!important;color:#000!important;border:1px solid #999}.card p,.card li,#centerbox .s{color:#000!important}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+<h1>☯️ 紫微斗數排盤助手</h1>
+<p>農曆換算・真太陽時・夜子時・五行局・十四主星・輔星四化・大限小限流年・格局解說<br>單檔離線可用｜三合派常用規則｜<a href="index.html">← 回遊戲大廳</a></p>
+</header>
+<div class="notice">📜 民俗命理工具，<b>僅供學習研究與娛樂參考</b>，不構成人生決策建議。各流派安星與解說差異甚大，本站採三合派通用口訣；出生時刻以<b>真太陽時＋夜子時</b>校正為佳，時辰不明請選「時辰不明」。重大事項請諮詢合格命理師或專業人士。</div>
+
+<div class="panel" id="setbar">
+<h2>⚙️ 專業設定（自動記憶）</h2>
+<div class="row">
+<div><label>出生地真太陽時修正</label><select id="set-loc"></select> <span id="lonbox" style="display:none">經度 <input id="set-lon" type="number" step="0.01" value="121.56" style="width:90px">°E</span></div>
+<div><label>夜子時歸屬</label><select id="set-zishi"><option value="next">23:00後歸次日（專業・預設）</option><option value="same">子時歸當日</option></select></div>
+<div><label>換年以</label><select id="set-liChun"><option value="lunar">農曆正月初一換年</option><option value="lichun">立春換年（八字派）</option></select></div>
+</div>
+<p id="set-info" style="color:#9fc3dd;font-size:12.5px;margin-top:8px"></p>
+</div>
+
+<div class="panel">
+<h2>📝 輸入生辰</h2>
+<div class="row">
+<div><label>輸入模式</label><select id="mode"><option value="solar">國曆 → 農曆</option><option value="lunar">農曆 → 國曆</option></select></div>
+<div id="box-solar"><label>國曆生日</label><input type="date" id="in-solar" value="1990-05-21"></div>
+<div id="box-lunar" style="display:none"><label>農曆（年 月 日・閏月勾選）</label><span><input type="number" id="in-ly" value="1990" style="width:85px"> 年 <input type="number" id="in-lm" value="4" min="1" max="12" style="width:60px"> 月 <input type="number" id="in-ld" value="1" min="1" max="30" style="width:60px"> 日 <label style="display:inline"><input type="checkbox" id="in-leap"> 閏月</label></span></div>
+<div><label>出生時間</label><select id="in-time"></select></div>
+<div><label>性別</label><select id="in-sex"><option value="M">男</option><option value="F">女</option></select></div>
+<div><label>姓名（選填・僅顯示）</label><input id="in-name" placeholder="如：王小明" style="width:120px"></div>
+<div id="btnbar"><button class="go" id="btn-go">☯️ 排出命盤</button>
+<button class="sub" id="btn-demo">🎲 範例命盤</button>
+<button class="sub" id="btn-copy">📋 複製文字報告</button>
+<button class="sub" id="btn-print">🖨️ 列印</button></div>
+</div>
+<div id="warn" style="color:#ff9d9d;font-size:13px;margin-top:8px;line-height:1.7"></div>
+</div>
+
+<div class="tabs">
+<button data-t="chart" class="on">☯️ 命盤</button>
+<button data-t="detail">📖 命盤詳解</button>
+<button data-t="da">⏳ 大限・流年</button>
+<button data-t="dict">✨ 星曜辭典</button>
+<button data-t="help">❓ 名詞說明</button>
+</div>
+
+<div class="panel" id="p-chart">
+<h2>☯️ 十二宮命盤</h2>
+<div id="chart"></div>
+<div id="baseinfo"></div>
+</div>
+
+<div class="panel" id="p-detail" style="display:none">
+<h2>📖 命盤詳解</h2>
+<div id="out-detail"></div>
+</div>
+
+<div class="panel" id="p-da" style="display:none">
+<h2>⏳ 大限・小限・流年</h2>
+<div class="row"><div><label>查看年份（流年）</label><input type="number" id="in-year" style="width:110px"></div>
+<div><button class="sub" id="btn-year">更新流年</button></div></div>
+<div id="out-da"></div>
+</div>
+
+<div class="panel" id="p-dict" style="display:none">
+<h2>✨ 星曜辭典（十四主星＋常用輔星・本命對照）</h2>
+<div id="out-dict"></div>
+</div>
+
+<div class="panel" id="p-help" style="display:none">
+<h2>❓ 名詞說明・規則揭露</h2>
+<div class="grid">
+<div class="card"><h3>命宮・身宮・五行局</h3><p>命宮：以農曆生月自寅宮順數，逆數生時。<br>身宮：生月起寅順數至生月，再順數生時。<br>五行局：命宮干支納音定局，分水二／木三／金四／土五／火六局，決定紫微位置與起大限歲數。</p></div>
+<div class="card"><h3>紫微・天府系</h3><p>紫微系六星逆布：紫微→天機→太陽→武曲→天同→廉貞。<br>天府系八星順布：天府→太陰→貪狼→巨門→天相→天梁→七殺→破軍。<br>天府與紫微恆差四宮（順行）。</p></div>
+<div class="card"><h3>四化・左右昌曲魁鉞</h3><p>四化依生年天干（中州表）：祿權科忌各一。<br>左輔右弼、文昌文曲、天魁天鉞、祿存擎羊陀羅、火鈴空劫天馬，皆依年／時口訣安星。</p></div>
+<div class="card"><h3>大限・小限・流年・斗君</h3><p>大限：由局數起限（2～6歲起），陽男陰女順行、陰男陽女逆行，每限10年。<br>小限：男順女逆，以年支定1歲宮。<br>流年：當年地支入宮；斗君：流年斗君定正月所在，順佈流月（本站列到流月）。</p></div>
+<div class="card"><h3>真太陽時・夜子時</h3><p>真太陽時＝北京時間－經度差（每度4分）＋均時差（本站用簡化均時差±15分內）。<br>夜子時：23:00後出生，日柱與命宮取次日（專業預設）。時辰不明者，主星僅供參考，建議以命宮三方四正大格局看。</p></div>
+<div class="card"><h3>流派聲明</h3><p>紫微斗數有三合、四化、欽天、中州等派，火鈴空劫安法、長生博士起法、閏月取法皆有分歧。本站：閏月取前半歸本月、後半歸次月（並提示）；長生依陽男陰女順逆；博士隨祿存。僅供學習比對。</p></div>
+</div>
+</div>
+
+<footer>紫微排盤 key：<code>hg-ziwei-set</code>・<code>hg-ziwei-last</code>｜曆法 1900–2100・全離線運算，不上傳任何個資<br><a href="index.html">🎮 回 HTML Games 大廳</a>・<a href="nongli.html">📅 農民曆助手</a></footer>
+</div>
+<script>
+"use strict";
+/* ============ 常數 ============ */
+const GAN=["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+const ZHI=["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+const SX=["鼠","牛","虎","兔","龍","蛇","馬","羊","猴","雞","狗","豬"];
+const GONG=["命宮","兄弟","夫妻","子女","財帛","疾厄","遷移","交友","官祿","田宅","福德","父母"];
+const YIN=2; // 寅 index
+const LUNAR_INFO=[0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x055c0,0x0ab60,0x096d5,0x092e0,0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,0x05aa0,0x076a3,0x096d0,0x04bd7,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,0x0a2e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x04b55,0x04b60,0x0a570,0x054e4,0x0d160,0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,0x0d520];
+const LOCS=[["不修正（用輸入時間）",0],["臺北 121.56°",121.56],["臺中 120.68°",120.68],["高雄 120.31°",120.31],["北京 116.40°",116.4],["上海 121.47°",121.47],["廣州 113.26°",113.26],["香港 114.17°",114.17],["自訂經度",-1]];
+const TIMES=[["時辰不明（只看大格局）",-1],["早子 00:00–00:59",0],["丑 01:00–02:59",1],["寅 03:00–04:59",2],["卯 05:00–06:59",3],["辰 07:00–08:59",4],["巳 09:00–10:59",5],["午 11:00–12:59",6],["未 13:00–14:59",7],["申 15:00–16:59",8],["酉 17:00–18:59",9],["戌 19:00–20:59",10],["亥 21:00–22:59",11],["晚子 23:00–23:59",0]];
+const SIHUA={0:["廉貞","破軍","武曲","太陽"],1:["天機","天梁","紫微","太陰"],2:["天同","天機","文昌","廉貞"],3:["太陰","天同","天機","巨門"],4:["貪狼","太陰","右弼","天機"],5:["武曲","貪狼","天梁","文曲"],6:["太陽","武曲","太陰","天同"],7:["巨門","太陽","文曲","文昌"],8:["天梁","紫微","左輔","武曲"],9:["破軍","巨門","太陰","貪狼"]};
+const NAYIN_JU={"甲子":4,"乙丑":4,"丙寅":6,"丁卯":6,"戊辰":3,"己巳":3,"庚午":5,"辛未":5,"壬申":4,"癸酉":4,"甲戌":6,"乙亥":6,"丙子":2,"丁丑":2,"戊寅":5,"己卯":5,"庚辰":4,"辛巳":4,"壬午":3,"癸未":3,"甲申":2,"乙酉":2,"丙戌":5,"丁亥":5,"戊子":6,"己丑":6,"庚寅":3,"辛卯":3,"壬辰":2,"癸巳":2,"甲午":4,"乙未":4,"丙申":6,"丁酉":6,"戊戌":3,"己亥":3,"庚子":5,"辛丑":5,"壬寅":4,"癸卯":4,"甲辰":6,"乙巳":6,"丙午":2,"丁未":2,"戊申":5,"己酉":5,"庚戌":4,"辛亥":4,"壬子":3,"癸丑":3,"甲寅":2,"乙卯":2,"丙辰":5,"丁巳":5,"戊午":6,"己未":6,"庚申":3,"辛酉":3,"壬戌":2,"癸亥":2};
+const JU_NAME={2:"水二局",3:"木三局",4:"金四局",5:"土五局",6:"火六局"};
+const STAR_INFO={
+"紫微":{x:"帝星・尊貴領導",p:"天生領導格，重面子講格局，宜大不宜小，喜百官朝拱，最怕孤君無輔。",c:"適合管理、創業、公職、品牌主理人；宜當頭不適合跑腿。",l:"感情慢熱重尊嚴，喜歡被崇拜，伴侶宜給面子、懂捧場。"},
+"天機":{x:"智星・謀略變動",p:"聰明善謀，心思細反應快，喜動不喜靜，勞心多。",c:"適合顧問、企劃、資訊、技術幕僚；忌死守一攤。",l:"心細體貼但想太多，感情宜多行動少腦補。"},
+"太陽":{x:"貴星・光明付出",p:"熱心博愛好面子，燃燒自己照亮別人，男命更顯。",c:"適合公職、教育、公益、業務外勤；要有名不要只利。",l:"大男人／大女人式付出，伴侶要懂得感恩回應。"},
+"武曲":{x:"財星・剛毅執行",p:"務實果決，重紀律績效，孤克味稍重。",c:"適合金融、軍警、工程、實業；靠實力不靠嘴。",l:"不懂浪漫但可靠，感情用行動證明。"},
+"天同":{x:"福星・溫和享福",p:"溫和樂天，重生活情趣，稍欠衝勁，喜安穩。",c:"適合服務、餐飲、文創、身心靈；細水長流型。",l:"溫柔體貼好相處，桃花不缺，宜防爛桃花。"},
+"廉貞":{x:"囚星・亦正亦邪",p:"聰明重情，理想高，次桃花星，化氣為囚為殺，遇吉則貴遇煞則偏。",c:"適合政治、法律、演藝、科技；規則內玩創意最強。",l:"愛恨分明佔有強，桃花旺，宜晚婚、重專一。"},
+"天府":{x:"庫星・守成富貴",p:"穩重保守，喜安定有庫，領導中的守成派，愛面子重排場。",c:"適合金融、房產、行政、不動產管理；守比攻強。",l:"專一顧家，喜歡照顧人，也愛被依賴。"},
+"太陰":{x:"富星・溫柔內斂",p:"細膩內斂，重財庫與家庭，夜生人更吉，喜靜。",c:"適合財務、房產、設計、內勤；夜班夜貓反而旺。",l:"溫柔多情，母性強，宜找成熟穩重對象。"},
+"貪狼":{x:"桃花・慾望才藝",p:"多才多藝好交際，慾望學習力強，第一桃花星，見吉則才藝見煞則酒色。",c:"適合演藝、業務、公關、外交；人脈即財脈。",l:"桃花最旺，魅力強，宜把桃花轉人脈，感情防三心二意。"},
+"巨門":{x:"暗星・口舌是非",p:"口才好觀察深，疑心重，是非多，化暗主遮蔽，宜以口為業反吉。",c:"適合律師、教師、評論、行銷、客服；靠嘴吃飯。",l:"愛則深疑則深，伴侶宜透明坦白，少翻舊帳。"},
+"天相":{x:"印星・忠誠服務",p:"忠厚正直，重承諾，輔佐之才，喜左右昌曲。",c:"適合秘書、幕僚、公職、法律助理；二把手命。",l:"專一重承諾，宜找同樣重承諾的人。"},
+"天梁":{x:"蔭星・老成庇蔭",p:"老成持重，好照顧晚輩，逢凶化吉，宜公益宗教。",c:"適合醫療、教育、公益、顧問；越老越值錢。",l:"像長輩般照顧人，宜年紀差或心智成熟對象。"},
+"七殺":{x:"將星・開創衝鋒",p:"果決開創，不怕挑戰，孤克刑剋味重，宜動中求財。",c:"適合創業、軍警、業務、外派；先衝再修。",l:"愛得直接激烈，宜給空間，忌冷戰。"},
+"破軍":{x:"耗星・破舊立新",p:"求新求變，不喜拘束，先破後成，大起大落。",c:"適合改革、科技、新創、物流；亂世出英雄。",l:"感情戲劇化，宜晚婚，伴侶要耐震。"},
+"左輔":{x:"輔星・助力",p:"忠厚助人，貴人運，化科主貴。",c:"得主管緣，適合團隊合作。",l:"伴侶多為貴人。"},
+"右弼":{x:"輔星・助力",p:"溫和機智，異性貴人多，化科主貴。",c:"協調力強，適合幕僚。",l:"體貼，桃花助力。"},
+"文昌":{x:"文星・功名",p:"聰明重名，利考試證照，化科最吉化忌則文書是非。",c:"適合文教、考試、出版。",l:"重精神交流。"},
+"文曲":{x:"文星・才藝",p:"口才藝術，桃花文星，化科才名化忌口舌。",c:"適合藝術、表演、口才業。",l:"浪漫多情。"},
+"天魁":{x:"貴人・晝貴",p:"主管貴、長輩緣，逢凶化吉。",c:"考試升遷有利。",l:"易得年長對象助。"},
+"天鉞":{x:"貴人・夜貴",p:"晚輩異性貴，暗中相助。",c:"偏財文書貴。",l:"暗桃花貴人。"},
+"祿存":{x:"財庫",p:"穩重守財，逢吉加財逢煞也解厄一半。",c:"守財第一，適合存股存房。",l:"重承諾，略固執。"},
+"擎羊":{x:"煞・刑",p:"果決衝動，血光刀傷，宜武職反為用。",c:"開刀、競爭業反吉。",l:"感情急，易爭吵。"},
+"陀羅":{x:"煞・忌",p:"拖延糾纏，是非口舌，宜慢工。",c:"研究、磨功業吉。",l:"糾結，宜斷捨離。"},
+"火星":{x:"煞・暴",p:"衝動爆發，來快去快，宜爆發力行業。",c:"短打、競技吉。",l:"一見鍾情型。"},
+"鈴星":{x:"煞・陰",p:"陰沉謀略，長期磨人，宜冷門堅持。",c:"長期耕耘反成大器。",l:"愛恨記仇，宜溝通。"},
+"地空":{x:"空・虛",p:"理想高不務實，發明創意，反傳統。",c:"適合發明、玄學、藝術。",l:"緣分飄忽。"},
+"地劫":{x:"劫・耗",p:"破耗波折，先得後失，宜現金少囤貨。",c:"劫後重生格。",l:"聚少離多。"},
+"天馬":{x:"驛馬・動",p:"好動奔波，越動越發，喜祿存同宮為祿馬交馳。",c:"外派、業務、旅遊業吉。",l:"遠距緣、異地緣。"},
+"化祿":{x:"四化・財",p:"財緣機會，多一分順。",c:"加薪得助。",l:"有人疼。"},
+"化權":{x:"四化・權",p:"掌權企圖，宜主管。",c:"升官主導。",l:"掌控慾強。"},
+"化科":{x:"四化・名",p:"名聲貴人，解厄。",c:"考試出名。",l:"斯文緣。"},
+"化忌":{x:"四化・欠",p:"欠債執著，是非空缺，所在宮多操心。",c:"宜逆向操作、冷門。",l:"愛得辛苦。"}
+};
+const MIAO={"紫微":"子旺丑廟寅廟卯旺辰旺巳陷午廟未得申得酉平戌旺亥平","天機":"子平丑陷寅廟卯廟辰得巳平午陷未得申得酉旺戌平亥廟","太陽":"子陷丑平寅旺卯旺辰旺巳旺午廟未平申平酉平戌平亥陷","武曲":"子平丑廟寅得卯平辰旺巳旺午旺未廟申平酉廟戌旺亥旺","天同":"子廟丑平寅利卯平辰平巳平午陷未旺申平酉平戌平亥廟","廉貞":"子平丑利寅旺卯旺辰利巳平午廟未利申平酉旺戌利亥平","天府":"子廟丑旺寅得卯得辰廟巳旺午旺未得申得酉旺戌廟亥平","太陰":"子廟丑廟寅利卯平辰平巳陷午陷未平申平酉旺戌廟亥廟","貪狼":"子旺丑陷寅得卯旺辰得巳平午旺未陷申得酉旺戌得亥旺","巨門":"子廟丑陷寅旺卯陷辰旺巳平午旺未陷申旺酉陷戌旺亥陷","天相":"子廟丑旺寅得卯平辰旺巳平午平未旺申平酉旺戌平亥旺","天梁":"子廟丑旺寅廟卯平辰旺巳平午廟未平申平酉平戌旺亥陷","七殺":"子旺丑廟寅廟卯平辰旺巳平午旺未旺申平酉廟戌旺亥旺","破軍":"子旺丑陷寅旺卯陷辰旺巳陷午旺未陷申旺酉陷戌旺亥陷"};
+/* ============ 曆法 ============ */
+function lYearDays(y){let s=348;for(let i=0x8000;i>0x8;i>>=1)s+=(LUNAR_INFO[y-1900]&i)?1:0;return s+lLeapDays(y);}
+function lLeapDays(y){if(lLeapMonth(y))return (LUNAR_INFO[y-1900]&0x10000)?30:29;return 0;}
+function lLeapMonth(y){return LUNAR_INFO[y-1900]&0xf;}
+function lMonthDays(y,m){return (LUNAR_INFO[y-1900]&(0x10000>>m))?30:29;}
+function solarToLunar(y,m,d){
+ let off=Math.floor((Date.UTC(y,m-1,d)-Date.UTC(1900,0,31))/86400000);
+ let dayCyl=off+40, monCyl=14;
+ for(let i=1900;i<2101&&off>0;i++){let ly=lYearDays(i);off-=ly;monCyl+=12;}
+ if(off<0){off+=lYearDays(monCyl/12|0 >2100?2100:2100);off+=lYearDays(arguments?(new Date().getFullYear()):2000);off=0;}
+ // 重算（穩健版）
+ off=Math.floor((Date.UTC(y,m-1,d)-Date.UTC(1900,0,31))/86400000);
+ dayCyl=off+40;monCyl=14;let yy=1900;
+ for(yy=1900;yy<2101;yy++){let ly=lYearDays(yy);if(off<ly)break;off-=ly;monCyl+=12;}
+ let leap=lLeapMonth(yy),isLeap=false,mm=1;
+ for(mm=1;mm<13&&off>0;mm++){
+   if(leap>0&&mm===leap+1&&!isLeap){mm--;isLeap=true;let dm=lLeapDays(yy);if(off<dm)break;off-=dm;monCyl++;}
+   else{let dm=lMonthDays(yy,isLeap?leap:mm);if(off<dm)break;off-=dm;if(!isLeap)monCyl++;}
+ }
+ let lunar={y:yy,m:isLeap?leap:mm,d:off+1,leap:isLeap};
+ // 干支
+ let yGan=(yy-4)%10, yZhi=(yy-4)%12;
+ return Object.assign(lunar,{yGan:(yGan+10)%10,yZhi:(yZhi+12)%12,dayCyl});
+}
+function lunarToSolar(ly,lm,ld,leap){
+ let off=0;
+ for(let y=1900;y<ly;y++)off+=lYearDays(y);
+ let lp=lLeapMonth(ly);
+ for(let m=1;m<13;m++){
+   if(m===lm&&!leap)break;
+   if(lp&&m===lp){off+=lMonthDays(ly,m);if(leap&&lm===lp)break;off+=lLeapDays(ly);if(leap&&lm===lp)break;continue;}
+   if(leap&&lm===lp&&m===lp+1)break;
+   off+=lMonthDays(ly,m);
+ }
+ off+=ld-1;
+ let base=Date.UTC(1900,0,31)+off*86400000, dt=new Date(base);
+ return {y:dt.getUTCFullYear(),m:dt.getUTCMonth()+1,d:dt.getUTCDate()};
+}
+function eqTime(dayN){return -7.65*Math.sin(2*Math.PI*dayN/365)+9.87*Math.sin(4*Math.PI*dayN/365+3.83)*0.5;}
+function trueSolar(dateObj,lon){
+ if(!lon&&lon!==0)return {dt:dateObj,plus:0};
+ let dayN=Math.floor((dateObj-new Date(dateObj.getFullYear(),0,0))/86400000);
+ let plus=(lon-120)*4+eqTime(dayN);
+ return {dt:new Date(dateObj.getTime()+plus*60000),plus};
+}
+/* ============ 干支工具 ============ */
+function wuhuDun(yGan){ // 月干：甲己起甲寅
+ const start=[2,4,6,8,0][yGan%5];
+ return (m)=> (start+(m-1))%10; // m=1為寅月
+}
+function wuziDun(dGan){const start=[0,2,4,6,8][dGan%5];return (h)=>(start+h)%10;}
+function brightness(star,zhi){
+ const s=MIAO[star];if(!s)return "平";
+ const ch=s[ZHI[zhi]]||s[zhi]||"平";
+ return {廟:"廟",旺:"旺",得:"得",利:"利",平:"平",陷:"陷"}[ch]||"平";
+}
+/* ============ 安星 ============ */
+function anChart(o){
+ // o: {lunarY,lunarM,lunarD,leap, hZhi(-1不明), sex, yGan,yZhi, dGan,dZhi, solar}
+ const lunarM=o.lunarM, hZhi=o.hZhi;
+ // 命宮：寅起正月順至生月，逆至生時
+ let mingZhi;
+ if(hZhi<0){mingZhi=(YIN+(lunarM-1))%12;} // 時不明：以月宮為命宮，後續標示
+ else{mingZhi=(YIN+(lunarM-1)-hZhi+YIN+120)%12;}
+ // 身宮：寅起正月順至生月，順至生時
+ let shenZhi=hZhi<0?(YIN+(lunarM-1))%12:(YIN+(lunarM-1)+hZhi-YIN+120)%12;
+ // 命宮天干（五虎遁，以年干＋命宮地支所屬月份寅月起算）
+ const mganFn=wuhuDun(o.yGan);
+ // 命宮在地支序中對應的「寅月數」：寅=1卯=2...
+ let mingMonthIdx=((mingZhi-YIN+12)%12)+1;
+ let mingGan=mganFn(mingMonthIdx);
+ // 五行局
+ let juKey=GAN[mingGan]+ZHI[mingZhi];
+ let ju=NAYIN_JU[juKey]||3;
+ // 紫微
+ let day=o.lunarD, N=ju;
+ let q=Math.floor(day/N), r=day%N, zw;
+ if(r===0)zw=(YIN+q-1+120)%12;
+ else{let base=(YIN+q)%12;if(r%2===1)zw=(base-r+120)%12;else zw=(base+r)%12;}
+ // 天府
+ let tf=(zw+4)%12;
+ // 紫微系（逆）
+ const ziweiSeries=["紫微","天機","太陽","武曲","天同","廉貞"];
+ const tfSeries=["天府","太陰","貪狼","巨門","天相","天梁","七殺","破軍"];
+ let pal={};for(let i=0;i<12;i++)pal[i]={zhi:i,stars:[],gong:"",gan:0};
+ ziweiSeries.forEach((s,i)=>{pal[(zw-i+120)%12].stars.push({n:s,t:"m"});});
+ tfSeries.forEach((s,i)=>{pal[(tf+i)%12].stars.push({n:s,t:"m"});});
+ // 十二宮名：命宮起逆行
+ let mingIdx=0;
+ for(let i=0;i<12;i++){let z=(mingZhi-i+120)%12;pal[z].gong=GONG[i];if(i===0)mingIdx=z;}
+ // 宮干：以年干五虎遁＋宮位月份
+ for(let i=0;i<12;i++){let monthIdx=((i-YIN+12)%12)+1;pal[i].gan=mganFn(monthIdx);}
+ // 身宮標記
+ pal[shenZhi].shen=true;pal[mingZhi].ming=true;
+ // 左輔右弼
+ if(hZhi>=0){
+   let zf=(4+(lunarM-1)-(hZhi-4)+1200)%12; // 辰起正月順至月，逆至時
+   // 簡化：辰(4)順+(m-1)，再逆-(h-辰)
+   zf=(4+(lunarM-1)-(hZhi-4)+1200)%12;
+   let yb=(10-(lunarM-1)+(hZhi-10)+1200)%12; // 戌起正月逆至月，順至時
+   pal[zf].stars.push({n:"左輔",t:"a"});pal[yb].stars.push({n:"右弼",t:"a"});
+   // 文昌文曲
+   let wc=(10-(hZhi-10)+120)%12; // 戌起子逆
+   let wq=(4+(hZhi-4)+120)%12;   // 辰起子順
+   pal[wc].stars.push({n:"文昌",t:"a"});pal[wq].stars.push({n:"文曲",t:"a"});
+   // 火鈴（年支）
+   const yz=o.yZhi;
+   let huoBase=(yz===2||yz===6||yz===10)?0:(yz===8||yz===0||yz===4)?2:(yz===5||yz===9||yz===1)?3:7;
+   // 寅午戌丑起，申子辰寅起，巳酉丑卯起，亥卯未酉起，順至時
+   let huo=(huoBase+(hZhi-0)+120)%12;
+   pal[huo].stars.push({n:"火星",t:"s"});
+   let lingBase=(yz===2||yz===6||yz===10)?3:(yz===8||yz===0||yz===4)?10:(yz===5||yz===9||yz===1)?7:1;
+   let ling=(lingBase-(hZhi-0)+1200)%12;
+   pal[ling].stars.push({n:"鈴星",t:"s"});
+   // 地空地劫
+   let jk=(10+(hZhi-0))%12, kk=(10-(hZhi-0)+120)%12; // 亥起子順/逆
+   pal[jk].stars.push({n:"地劫",t:"s"});pal[kk].stars.push({n:"地空",t:"s"});
+ }
+ // 天魁天鉞（年干）
+ const kui={0:[1,11],4:[1,11],6:[1,11],1:[0,8],5:[0,8],2:[11,9],3:[11,9],8:[5,3],9:[5,3],7:[6,2]}[o.yGan];
+ if(kui){pal[kui[0]].stars.push({n:"天魁",t:"a"});pal[kui[1]].stars.push({n:"天鉞",t:"a"});}
+ // 祿存擎羊陀羅（年干）
+ const lu={0:2,1:3,2:5,4:5,3:6,5:6,6:8,7:9,8:11,9:0}[o.yGan];
+ if(lu!==undefined){pal[lu].stars.push({n:"祿存",t:"a"});pal[(lu+1)%12].stars.push({n:"擎羊",t:"s"});pal[(lu+11)%12].stars.push({n:"陀羅",t:"s"});}
+ // 天馬（年支）
+ const ma={2:8,6:8,10:8,8:2,0:2,4:2,5:11,9:11,1:11,11:5,3:5,7:5}[o.yZhi];
+ if(ma!==undefined)pal[ma].stars.push({n:"天馬",t:"s"});
+ // 四化（生年干）
+ const sh=SIHUA[o.yGan];
+ const tags={};
+ sh.forEach((star,i)=>{tags[star]=["祿","權","科","忌"][i];});
+ Object.keys(pal).forEach(z=>{pal[z].stars.forEach(s=>{if(tags[s.n])s.h=tags[s.n];});});
+ // 長生十二神（陽男陰女順，陰男陽女逆；火土同宮起申，木亥，金巳，水申）
+ // 簡化：以年干陰陽＋性別決定順逆，長生位：甲戊庚申位（申），乙己亥，丙丁壬巳，辛子，癸卯
+ const yangGan=[0,2,4,6,8].includes(o.yGan);
+ const isYang=(o.sex==="M"&&yangGan)||(o.sex==="F"&&!yangGan);
+ const csBase={0:8,4:8,6:8,1:11,5:11,2:5,3:5,8:5,7:0,9:3}[o.yGan];
+ const CS=["長生","沐浴","冠帶","臨官","帝旺","衰","病","死","墓","絕","胎","養"];
+ if(csBase!==undefined){for(let i=0;i<12;i++){let z=isYang?(csBase+i)%12:(csBase-i+120)%12;pal[z].cs=CS[i];}}
+ // 博士十二神隨祿存順逆
+ const BS=["博士","力士","青龍","小耗","將軍","奏書","飛廉","喜神","病符","大耗","伏兵","官府"];
+ if(lu!==undefined){for(let i=0;i<12;i++){let z=isYang?(lu+i)%12:(lu-i+120)%12;pal[z].bs=BS[i];}}
+ return {pal,mingZhi,shenZhi,mingGan,ju,juKey,zw,tf,tags,isYang,lu};
+}
+function daxian(chart,o){
+ const start=chart.ju; // 幾歲起
+ const dir=chart.isYang?1:-1;
+ let arr=[];
+ for(let k=0;k<9;k++){
+   let age0=start+k*10, age1=age0+9;
+   let z=(chart.mingZhi+k*dir+120)%12;
+   arr.push({from:age0,to:age1,zhi:z,gong:chart.pal[z].gong});
+ }
+ return arr;
+}
+function liunianX(year){
+ return (year-4)%12<0?((year-4)%12+12)%12:(year-4)%12;
+}
+function patterns(chart){
+ const out=[];
+ const has=(star)=>Object.values(chart.pal).some(p=>p.stars.some(s=>s.n===star));
+ const at=(star)=>{for(let z in chart.pal){if(chart.pal[z].stars.some(s=>s.n===star))return +z;}return -1;};
+ const sanfang=(z)=>[z,(z+4)%12,(z+8)%12,(z+6)%12];
+ const ming=chart.mingZhi;
+ const sf=sanfang(ming).flatMap(z=>chart.pal[z].stars.map(s=>s.n));
+ if(["七殺","破軍","貪狼"].every(s=>sf.includes(s)))out.push(["殺破狼・變動開創","命三方見殺破狼，一生多變動，宜動中求財、異地發展，吉則開創新局。"]);
+ if(has("紫微")&&has("天府")){
+   let a=at("紫微"),b=at("天府");
+   if(a===b)out.push(["紫府同宮・富貴雙全","紫微天府同宮，穩重有格局，宜大事業、守成創業皆可。"]);
+   else if(Math.abs(a-b)===6||Math.abs(a-b)===6)out.push(["紫府朝垣・尊貴","紫微天府對拱，一生貴人多，宜公職大企業。"]);
+ }
+ if(sf.includes("文昌")&&sf.includes("文曲"))out.push(["昌曲夾命・文采","三方見文昌文曲，聰明好學，利考試、寫作、口才。"]);
+ if(sf.includes("左輔")&&sf.includes("右弼"))out.push(["左右夾命・貴助","三方見左右，貴人主管緣強，宜團隊。"]);
+ if(sf.includes("火星")&&sf.includes("鈴星"))out.push(["火鈴・爆發","三方見火鈴，爆發力強，宜短打競技，忌衝動。"]);
+ if(sf.includes("地空")&&sf.includes("地劫"))out.push(["空劫・理想","三方見空劫，理想高、創意強，錢財宜見好就收。"]);
+ if(sf.includes("擎羊")&&sf.includes("陀羅"))out.push(["羊陀・磨練","三方見羊陀，多磨練競爭，宜武職、競技反為用。"]);
+ const luStar=Object.keys(chart.tags).find(k=>chart.tags[k]==="祿");
+ if(luStar&&chart.pal[at("祿存")]&&at(luStar)===at("祿存"))out.push(["祿存＋化祿・雙祿朝垣","財運加倍，宜守財置產。"]);
+ if(chart.pal[at("天馬")]&&luStar&&at("天馬")===at(luStar))out.push(["祿馬交馳・動中得財","天馬逢化祿，越動越發，宜外地、業務。"]);
+ const jiStar=Object.keys(chart.tags).find(k=>chart.tags[k]==="忌");
+ if(jiStar)out.push(["化忌在"+chart.pal[at(jiStar)].gong+"（"+jiStar+"化忌）","該宮多操心欠債，宜逆向操作、慢半拍，忌衝動加碼。"]);
+ if(!out.length)out.push(["格局平穩・無強烈特殊組合","三方無強烈格局，論命以主星廟旺＋四化＋大限走勢為主。"]);
+ return out;
+}
+/* ============ UI ============ */
+const $=id=>document.getElementById(id);
+function initSel(){
+ $("set-loc").innerHTML=LOCS.map((l,i)=>`<option value="${i}">${l[0]}</option>`).join("");
+ $("in-time").innerHTML=TIMES.map((l,i)=>`<option value="${l[1]}" ${i===3?"selected":""}>${l[0]}</option>`).join("");
+ $("in-year").value=new Date().getFullYear();
+ try{
+   let s=JSON.parse(localStorage.getItem("hg-ziwei-set")||"{}");
+   if(s.loc!==undefined)$("set-loc").value=s.loc;
+   if(s.lon)$("set-lon").value=s.lon;
+   if(s.zs)$("set-zishi").value=s.zs;
+   if(s.lc)$("set-liChun").value=s.lc;
+   let l=JSON.parse(localStorage.getItem("hg-ziwei-last")||"null");
+   if(l){$("mode").value=l.mode||"solar";if(l.solar)$("in-solar").value=l.solar;
+     if(l.ly)$("in-ly").value=l.ly;if(l.lm)$("in-lm").value=l.lm;if(l.ld)$("in-ld").value=l.ld;
+     if(l.time!==undefined)$("in-time").value=l.time;if(l.sex)$("in-sex").value=l.sex;if(l.name)$("in-name").value=l.name;}
+ }catch(e){}
+ updSet();
+}
+function updSet(){
+ let li=+$("set-loc").value;
+ $("lonbox").style.display=LOCS[li][1]===-1?"inline":"none";
+ let lon=LOCS[li][1]===-1?+$("set-lon").value:LOCS[li][1];
+ let adj=lon?((lon-120)*4).toFixed(1):"0";
+ $("set-info").textContent=`真太陽時修正：${LOCS[li][0]}（約${adj}分）｜夜子時：${$("set-zishi").selectedOptions[0].text}｜換年：${$("set-liChun").selectedOptions[0].text}`;
+ try{localStorage.setItem("hg-ziwei-set",JSON.stringify({loc:$("set-loc").value,lon:$("set-lon").value,zs:$("set-zishi").value,lc:$("set-liChun").value}));}catch(e){}
+}
+let LAST=null;
+function collect(){
+ updSet();
+ let mode=$("mode").value;
+ $("box-solar").style.display=mode==="solar"?"":"none";
+ $("box-lunar").style.display=mode==="lunar"?"":"none";
+ let li=+$("set-loc").value, lon=LOCS[li][1]===-1?+$("set-lon").value:LOCS[li][1];
+ let zs=$("set-zishi").value, lichun=$("set-liChun").value;
+ let hSel=+$("in-time").value, sex=$("in-sex").value, name=$("in-name").value.trim();
+ let warn=[];
+ let solar,lunar;
+ if(mode==="solar"){
+   let v=$("in-solar").value;if(!v){warn.push("請選擇國曆生日。");return {warn};}
+   let [Y,M,D]=v.split("-").map(Number);
+   let dt=new Date(Y,M-1,D,12,0,0);
+   let ts=trueSolar(dt,lon);
+   let use=ts.dt;
+   // 夜子時
+   let hr=use.getHours();
+   let nightNext=(hr>=23&&zs==="next");
+   if(nightNext){use=new Date(use.getTime()+24*3600*1000);}
+   solar={y:use.getFullYear(),m:use.getMonth()+1,d:use.getDate(),adj:ts.plus,night:hr>=23||hr<1};
+   lunar=solarToLunar(solar.y,solar.m,solar.d);
+   if(lichun==="lichun"){
+     // 立春換年：簡化以2/4為界
+     let lc=(M===2&&D>=4)||M>2;
+     if(!lc){lunar.yGan=(lunar.yGan+9)%10;lunar.yZhi=(lunar.yZhi+11)%12;}
+     warn.push("採立春換年："+(lc?"已過立春，取當年干支":"未過立春，取前一年干支")+"。");
+   }
+   if(solar.night)warn.push("子時出生已按「"+(zs==="next"?"23時後歸次日":"歸當日")+"」處理；真太陽時修正約"+ts.plus.toFixed(1)+"分。");
+   if(lon)warn.push("已做真太陽時修正（經度"+lon+"°，約"+ts.plus.toFixed(1)+"分），命宮可能與一般排盤差一時辰，請比對。");
+ }else{
+   let ly=+$("in-ly").value,lm=+$("in-lm").value,ld=+$("in-ld").value,leap=$("in-leap").checked;
+   if(ly<1900||ly>2100){warn.push("農曆年僅支援 1900–2100。");return {warn};}
+   let s=lunarToSolar(ly,lm,ld,leap);
+   solar={y:s.y,m:s.m,d:s.d,adj:0,night:false};
+   lunar=solarToLunar(s.y,s.m,s.d);
+   lunar.m=lm;lunar.d=ld;lunar.leap=leap;lunar.y=ly;
+   let yG=(ly-4)%10,yZ=(ly-4)%12;lunar.yGan=(yG+10)%10;lunar.yZhi=(yZ+12)%12;
+ }
+ // 日干支
+ let baseOff=Math.floor((Date.UTC(solar.y,solar.m-1,solar.d)-Date.UTC(1900,0,31))/86400000);
+ let dGan=(0+baseOff)%10, dZhi=(10+baseOff)%12;
+ dGan=(dGan+10)%10;dZhi=(dZhi+12)%12;
+ if(solar.night&&zs==="next"){dGan=(dGan+1)%10;dZhi=(dZhi+1)%12;}
+ // 月干支
+ let mGanFn=wuhuDun(lunar.yGan);
+ // 農曆月對應地支：正月寅
+ let mZhi=(YIN+(lunar.m-1))%12;
+ let mGan=mGanFn(lunar.m);
+ // 時干支
+ let hGan=hSel<0?-1:(wuziDun(dGan))(hSel);
+ try{localStorage.setItem("hg-ziwei-last",JSON.stringify({mode,solar:$("in-solar").value,ly:$("in-ly").value,lm:$("in-lm").value,ld:$("in-ld").value,time:$("in-time").value,sex,name}));}catch(e){}
+ return {warn,solar,lunar,hSel,sex,name,dGan,dZhi,mGan,mZhi,hGan,yGan:lunar.yGan,yZhi:lunar.yZhi};
+}
+function hzTag(h,i){
+ if(i==="祿")return `<span class="tag t-lu">化祿</span>`;
+ if(i==="權")return `<span class="tag t-quan">化權</span>`;
+ if(i==="科")return `<span class="tag t-ke">化科</span>`;
+ return `<span class="tag t-ji">化忌</span>`;
+}
+function render(){
+ let c=collect();
+ if(c.warn&&!c.solar){$("warn").innerHTML=c.warn.join("<br>");return;}
+ $("warn").innerHTML=(c.warn||[]).join("<br>");
+ let chart=anChart({lunarY:c.lunar.y,lunarM:c.lunar.m,lunarD:c.lunar.d,leap:c.lunar.leap,hZhi:c.hSel,sex:c.sex,yGan:c.yGan,yZhi:c.yZhi,dGan:c.dGan,dZhi:c.dZhi});
+ let nowY=+$("in-year").value||new Date().getFullYear();
+ let lnZhi=liunianX(nowY);
+ LAST={c,chart,nowY,lnZhi};
+ // 中央
+ let age=nowY-c.solar.y+1;
+ // 命盤格：順序 巳午未申／辰○○酉／卯○○戌／寅丑子亥，做成4x4
+ const order=[[5,6,7,8],[4,-1,-1,9],[3,-1,-1,10],[2,1,0,11]];
+ let html="",centerDone=false;
+ order.forEach(row=>{
+   row.forEach(z=>{
+     if(z===-1){
+       if(!centerDone){
+         centerDone=true;
+         html+=`<div id="centerbox"><div class="t">${c.name?c.name+"・":""}${c.sex==="M"?"乾造":"坤造"} ${JU_NAME[chart.ju]}</div><div class="s">國曆 ${c.solar.y}/${c.solar.m}/${c.solar.d}・農曆 ${c.lunar.y}年${c.lunar.leap?"閏":""}${c.lunar.m}月${c.lunar.d}日<br>${GAN[c.yGan]}${ZHI[c.yZhi]}年 ${GAN[c.mGan]}${ZHI[c.mZhi]}月 ${GAN[c.dGan]}${ZHI[c.dZhi]}日${c.hSel<0?"・時辰不明":(" "+GAN[c.hGan]+ZHI[c.hSel]+"時")}<br>命宮${GAN[chart.mingGan]}${ZHI[chart.mingZhi]}（${chart.juKey}・${JU_NAME[chart.ju]}）・身宮${ZHI[chart.shenZhi]}<br>虛歲${age}歲・${nowY}年流年${ZHI[lnZhi]}宮・生肖${SX[c.yZhi]}</div></div>`;
+       }
+       return;
+     }
+     let p=chart.pal[z];
+     let cls=p.ming?"gong ming":(p.shen?"gong shen":"gong");
+     let stars=p.stars.map(s=>{
+       let b=["紫微","天機","太陽","武曲","天同","廉貞","天府","太陰","貪狼","巨門","天相","天梁","七殺","破軍"].includes(s.n)?` <span style="color:#9fc3dd">${brightness(s.n,z)}</span>`:"";
+       let h=s.h?hzTag(0,s.h):"";
+       let cl=s.t==="m"?"m":(s.t==="a"?"a":"s");
+       return `<div class="${cl}">${s.n}${b}${h}</div>`;
+     }).join("")||`<div style="color:#4a657a">（無主輔星）</div>`;
+     html+=`<div class="${cls}"><div class="gt"><span>${p.gong}${p.ming?" ★":""}${p.shen?"・身":""}</span><span class="gz">${GAN[p.gan]}${ZHI[z]}</span></div><div class="stars">${stars}</div><div class="foot">${p.cs||""}${p.cs?"・":""}${p.bs||""}<br><span class="dx">大限${daxianFor(chart,c,z,nowY)}</span></div></div>`;
+   });
+ });
+ $("chart").innerHTML=html;
+ // 基本資料卡
+ let four=Object.keys(chart.tags).map(k=>`${k}化${{祿:"祿",權:"權",科:"科",忌:"忌"}[chart.tags[k]]}`).join("・");
+ $("baseinfo").innerHTML=`<div class="grid">
+ <div class="card"><h3>📌 基本資料</h3><p>年干支 <b>${GAN[c.yGan]}${ZHI[c.yZhi]}</b>（生肖${SX[c.yZhi]}・${[0,2,4,6,8].includes(c.yGan)?"陽":"陰"}${c.sex==="M"?"男":"女"}・${chart.isYang?"順行大限":"逆行大限"}）<br>月干支 <b>${GAN[c.mGan]}${ZHI[c.mZhi]}</b>・日干支 <b>${GAN[c.dGan]}${ZHI[c.dZhi]}</b>${c.hSel<0?"・<b class=mid>時辰不明</b>":("・時干支 <b>"+GAN[c.hGan]+ZHI[c.hSel]+"</b>")}<br>五行局 <b class="mid">${JU_NAME[chart.ju]}</b>（${chart.juKey}納音）・紫微在<b>${ZHI[chart.zw]}</b>・天府在<b>${ZHI[chart.tf]}</b></p></div>
+ <div class="card"><h3>✨ 生年四化</h3><p class="big" style="font-size:16px">${four}</p><p>祿＝財緣機會・權＝掌權企圖・科＝名聲貴人・忌＝欠債操心。化忌所在宮即一生最用力也最糾結處。</p></div>
+ <div class="card"><h3>🧭 三方四正速覽</h3><p>${sanfangText(chart)}</p></div>
+ </div>`;
+ renderDetail();renderDA();
+}
+function daxianFor(chart,c,z,nowY){
+ let dx=daxian(chart,{sex:c.sex});
+ let age=nowY-c.solar.y+1;
+ for(let d of dx){if(d.zhi===z)return `${d.from}–${d.to}歲`;}
+ return "";
+}
+function sanfangText(chart){
+ const m=chart.mingZhi;
+ const zs=[m,(m+4)%12,(m+8)%12];
+ const all=zs.flatMap(z=>chart.pal[z].stars.map(s=>s.n));
+ const dui=chart.pal[(m+6)%12].stars.map(s=>s.n);
+ return `命三方（命・財・官）：${[...new Set(all)].join("・")||"無主星"}<br>對宮遷移：${dui.join("・")||"無主星"}`;
+}
+function renderDetail(){
+ if(!LAST)return;
+ let {c,chart}=LAST;
+ let pats=patterns(chart);
+ let h=`<div class="grid"><div class="card"><h3>🧩 格局判斷</h3><ul>${pats.map(p=>`<li><b class="mid">${p[0]}</b><br>${p[1]}</li>`).join("")}</ul></div>`;
+ h+=`<div class="card"><h3>👤 命宮解說（${chart.pal[chart.mingZhi].gong}・${GAN[chart.pal[chart.mingZhi].gan]}${ZHI[chart.mingZhi]}）</h3><p>${palaceText(chart,chart.mingZhi)}</p></div>`;
+ h+=`<div class="card"><h3>💰 財帛・💼 官祿・🌍 遷移</h3><p>${palaceText(chart,(chart.mingZhi+8)%12,true)}<br>${palaceText(chart,(chart.mingZhi+4)%12,true)}<br>${palaceText(chart,(chart.mingZhi+6)%12,true)}</p></div></div>`;
+ // 十二宮逐宮
+ h+=`<table><tr><th>宮位</th><th>干支</th><th>主星輔星（含亮度／四化）</th><th>一句解</th></tr>`;
+ for(let i=0;i<12;i++){
+   let z=(chart.mingZhi-i+120)%12,p=chart.pal[z];
+   let st=p.stars.map(s=>`${s.n}${["紫微","天機","太陽","武曲","天同","廉貞","天府","太陰","貪狼","巨門","天相","天梁","七殺","破軍"].includes(s.n)?brightness(s.n,z):""}${s.h?"化"+s.h:""}`).join("、")||"無主輔星";
+   h+=`<tr${p.ming?' class="hl"':""}><td><b>${p.gong}</b>${p.ming?" ★":""}${p.shen?"・身":""}</td><td>${GAN[p.gan]}${ZHI[z]}</td><td style="text-align:left">${st}<br><span style="color:#9fc3dd">${p.cs||""} ${p.bs||""}</span></td><td style="text-align:left">${shortJudge(p)}</td></tr>`;
+ }
+ h+=`</table><p style="color:#9fc3dd;font-size:12.5px;margin-top:8px">亮度：廟＞旺＞得＞利＞平＞陷。陷地主星宜借三方吉化或後天努力補強；煞多不一定凶，宜看是否「以煞為用」（武職、競技、改革、業務多能駕馭火鈴羊陀）。${c.hSel<0?"<br><b class=mid>時辰不明：命宮與身宮僅供參考，請以年干四化＋大格局＋大限走勢為主。</b>":""}</p>`;
+ $("out-detail").innerHTML=h;
+ // 辭典
+ let dh=`<div class="grid">`;
+ Object.keys(STAR_INFO).forEach(k=>{
+   let atZ=-1;for(let z in chart.pal){if(chart.pal[z].stars.some(s=>s.n===k))atZ=+z;}
+   dh+=`<div class="card"><h3>${k}・${STAR_INFO[k].x}${atZ>=0?`（在本命<b class="mid">${chart.pal[atZ].gong}</b>・${brightness(k,atZ)}）`:"（本命未入強宮・在三方或對宮找）"}</h3><p><b>性格：</b>${STAR_INFO[k].p}<br><b>事業：</b>${STAR_INFO[k].c}<br><b>感情：</b>${STAR_INFO[k].l}</p></div>`;
+ });
+ $("out-dict").innerHTML=dh+`</div>`;
+}
+function palaceText(chart,z,short){
+ let p=chart.pal[z];
+ let mains=p.stars.filter(s=>s.t==="m").map(s=>s.n);
+ let aux=p.stars.filter(s=>s.t!=="m").map(s=>s.n+(s.h?"化"+s.h:""));
+ let t=`<b>${p.gong}</b>（${GAN[p.gan]}${ZHI[z]}）：主星${mains.join("、")||"無（借對宮）"}；輔煞${aux.join("、")||"無"}。`;
+ if(mains.length)t+=mains.map(m=>STAR_INFO[m]?STAR_INFO[m].p:"").join("");
+ return t;
+}
+function shortJudge(p){
+ let s=p.stars.map(x=>x.n);
+ if(s.includes("紫微")||s.includes("天府"))return "尊貴守成，宜大格局、當責。";
+ if(s.includes("貪狼")||s.includes("廉貞"))return "桃花才藝，宜人脈、舞台。";
+ if(s.includes("七殺")||s.includes("破軍"))return "開創變動，宜動、宜闖。";
+ if(s.includes("天機")||s.includes("巨門"))return "智謀口才，宜腦力、嘴力。";
+ if(s.includes("太陽")||s.includes("太陰"))return "貴富光明，宜名、宜庫。";
+ if(s.includes("武曲")||s.includes("天相"))return "執行忠誠，宜實業、輔佐。";
+ if(s.includes("天同")||s.includes("天梁"))return "福蔭溫和，宜服務、長青。";
+ if(s.includes("化忌"))return "多操心，宜慢、宜逆向。";
+ if(s.includes("化祿"))return "多機會，宜把握、宜存。";
+ return "以三方四正合看，不單宮論。";
+}
+function renderDA(){
+ if(!LAST)return;
+ let {c,chart,nowY,lnZhi}=LAST;
+ let dx=daxian(chart,c);
+ let age=nowY-c.solar.y+1;
+ let cur=dx.find(d=>age>=d.from&&age<=d.to);
+ // 小限：男順女逆，年支起1歲
+ // 起法簡化：寅午戌人小限1歲在辰，申子辰在戌，巳酉丑在未，亥卯未在丑，男順女逆
+ const yb=c.yZhi;
+ let xlBase=(yb===2||yb===6||yb===10)?4:(yb===8||yb===0||yb===4)?10:(yb===5||yb===9||yb===1)?7:1;
+ let xlZhi=c.sex==="M"?(xlBase+(age-1))%12:(xlBase-(age-1)%12+120)%12;
+ // 斗君：流年斗君＝流年支起，逆數生月順數生時
+ let dou=(lnZhi-(c.lunar.m-1)+(c.hSel<0?0:(c.hSel-0))+1200)%12;
+ let h=`<div class="grid">
+ <div class="card"><h3>⏳ 現在（${nowY}年・${GAN[(nowY-4)%10+10]%10}${ZHI[lnZhi]}年）</h3><p>虛歲 <b class="mid">${age}</b> 歲・大限在<b class="mid">${cur?cur.gong+"（"+cur.from+"–"+cur.to+"歲・"+ZHI[cur.zhi]+"宮）":"已超出90歲範圍"}</b><br>小限在<b>${chart.pal[xlZhi].gong}（${ZHI[xlZhi]}宮）</b>・流年在<b>${chart.pal[lnZhi].gong}（${ZHI[lnZhi]}宮）</b>・斗君在<b>${ZHI[dou]}宮（正月）</b></p><p style="color:#9fc3dd">看流年：先看大限吉凶，再看流年是否引動（三方有祿權科為吉、有忌煞為動）；斗君起正月順佈十二流月。</p></div>
+ <div class="card"><h3>📊 大限走勢速斷</h3><p>${dx.map(d=>`${d.from}–${d.to}歲 ${d.gong}（${ZHI[d.zhi]}）：${shortJudge(chart.pal[d.zhi])}`).join("<br>")}</p></div>
+ </div>`;
+ h+=`<table><tr><th>大限</th><th>宮位</th><th>干支</th><th>宮中星曜</th><th>該限重點</th></tr>`;
+ dx.forEach(d=>{
+   let p=chart.pal[d.zhi];
+   let st=p.stars.map(s=>`${s.n}${s.h?"化"+s.h:""}`).join("、")||"無主輔星";
+   h+=`<tr${cur&&cur.from===d.from?' class="hl"':""}><td>${d.from}–${d.to}歲</td><td><b>${d.gong}</b></td><td>${GAN[p.gan]}${ZHI[d.zhi]}</td><td style="text-align:left">${st}</td><td style="text-align:left">${shortJudge(p)}</td></tr>`;
+ });
+ h+=`</table>`;
+ // 流月
+ h+=`<table><tr><th>流月（${nowY}年・斗君${ZHI[dou]}起正月）</th><th>宮位</th><th>星曜提示</th></tr>`;
+ for(let i=0;i<12;i++){
+   let z=(dou+i)%12,p=chart.pal[z];
+   h+=`<tr${z===lnZhi?' class="hl"':""}><td>${i+1}月</td><td>${p.gong}（${ZHI[z]}）</td><td style="text-align:left">${(p.stars.map(s=>s.n).join("、")||"—")}</td></tr>`;
+ }
+ h+=`</table><p style="color:#9fc3dd;font-size:12.5px;margin-top:8px">大限為體、流年為用：大限吉＋流年吉＝大發；大限凶＋流年忌煞＝保守。化忌入流年命、財、官、遷要特別謹慎。</p>`;
+ $("out-da").innerHTML=h;
+}
+/* 事件 */
+document.querySelectorAll(".tabs button").forEach(b=>{b.onclick=()=>{
+ document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+ ["chart","detail","da","dict","help"].forEach(t=>$("p-"+t).style.display=t===b.dataset.t?"":"none");
+};});
+$("mode").onchange=()=>{let m=$("mode").value;$("box-solar").style.display=m==="solar"?"":"none";$("box-lunar").style.display=m==="lunar"?"":"none";};
+$("set-loc").onchange=updSet;$("set-lon").oninput=updSet;$("set-zishi").onchange=updSet;$("set-liChun").onchange=updSet;
+$("btn-go").onclick=render;
+$("btn-year").onclick=()=>{if(!LAST)render();else{LAST.nowY=+$("in-year").value||new Date().getFullYear();LAST.lnZhi=liunianX(LAST.nowY);renderDA();document.querySelector('[data-t="da"]').click();}};
+$("btn-demo").onclick=()=>{$("mode").value="solar";$("in-solar").value="1993-08-15";$("in-time").value="6";$("in-sex").value="F";$("in-name").value="範例";$("in-year").value=new Date().getFullYear();render();};
+$("btn-print").onclick=()=>window.print();
+$("btn-copy").onclick=()=>{
+ if(!LAST){alert("請先排盤");return;}
+ let {c,chart,nowY,lnZhi}=LAST;
+ let age=nowY-c.solar.y+1;
+ let t=`【紫微斗數命盤】${c.name||""} ${c.sex==="M"?"乾造":"坤造"} ${JU_NAME[chart.ju]}\n國曆${c.solar.y}/${c.solar.m}/${c.solar.d}・農曆${c.lunar.y}年${c.lunar.leap?"閏":""}${c.lunar.m}月${c.lunar.d}日${c.hSel<0?"時辰不明":" "+GAN[c.hGan]+ZHI[c.hSel]+"時"}\n${GAN[c.yGan]}${ZHI[c.yZhi]}年 ${GAN[c.mGan]}${ZHI[c.mZhi]}月 ${GAN[c.dGan]}${ZHI[c.dZhi]}日｜命宮${GAN[chart.mingGan]}${ZHI[chart.mingZhi]}・身宮${ZHI[chart.shenZhi]}・紫微${ZHI[chart.zw]}・天府${ZHI[chart.tf]}\n生年四化：${Object.keys(chart.tags).map(k=>k+"化"+chart.tags[k]).join("、")}\n虛歲${age}・${nowY}流年${ZHI[lnZhi]}（${chart.pal[lnZhi].gong}）\n`;
+ for(let i=0;i<12;i++){let z=(chart.mingZhi-i+120)%12,p=chart.pal[z];t+=`${p.gong}(${GAN[p.gan]}${ZHI[z]}):${p.stars.map(s=>s.n+(s.h?"化"+s.h:"")).join("、")||"無"}\n`;}
+ t+=`僅供學習娛樂參考・https://wanpwang2025-boop.github.io/html-games/ziwei.html`;
+ navigator.clipboard.writeText(t).then(()=>alert("已複製文字報告！")).catch(()=>{prompt("複製此報告：",t);});
+};
+initSel();render();
+</script>
+</body>
+</html>

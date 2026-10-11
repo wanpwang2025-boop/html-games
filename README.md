@@ -20,6 +20,7 @@
 | 📳 新北搖搖合輯 | https://wanpwang2025-boop.github.io/html-games/shake-party.html |
 | 🦛 河馬水中芭蕾 | https://wanpwang2025-boop.github.io/html-games/hippo-water-ballet.html |
 | 📅 農民曆分析助手 | https://wanpwang2025-boop.github.io/html-games/nongli.html |
+| ☯️ 紫微斗數排盤助手 | https://wanpwang2025-boop.github.io/html-games/ziwei.html |
 
 > 注意：最佳成績存在「當下那台裝置的瀏覽器」（`localStorage`），換手機/電腦或開無痕不會同步；
 > 只有倖存者能上傳全球榜。河馬芭蕾需網路載入 Three.js CDN 才能顯示 3D。
@@ -39,6 +40,7 @@
 | 📳 新北搖搖合輯 | `shake-party.html` | 體感三關：擲筊大賽＋工頭不要搖＋搖彩球賓果。DeviceMotion＋震動，建議 Android；桌機晃滑鼠/空白鍵降級 |
 | 🦛 河馬水中芭蕾 | `hippo-water-ballet.html` | Three.js 3D 跳水＋水花物理展示（需網路載入 CDN）。可放入圖片分析（明亮/飽和/動感/暖冷＋5 色票）產生專屬主題秀，另有海洋/落日/星空/櫻花 4 預設 |
 | 📅 農民曆分析助手 | `nongli.html` | 執業級（非遊戲）：國曆⇄農曆（1900–2099）、Meeus 交節到分（±10分）、真太陽時＋夜子時＋地點修正、三流派神煞規則引擎（歲月破/三煞/楊公忌/四離絕/十惡大敗/天赦月德天德）、主事人＋坐向沖犯、擇日評分＋LINE報告/列印、月曆總覽、八字簡排。全離線，設定記 `hg-nongli-set`／擇日記 `hg-nongli-pick` |
+| ☯️ 紫微斗數排盤助手 | `ziwei.html` | 專業級（非遊戲）：國曆⇄農曆（1900–2100）、真太陽時＋夜子時＋立春換年選項、五行局＋十四主星＋左右昌曲魁鉞祿羊陀火鈴空劫天馬＋生年四化、長生博士、傳統4×4命盤、大限小限流年流月斗君、格局自動判斷＋星曜辭典＋文字報告複製/列印。全離線，設定記 `hg-ziwei-set`／上次輸入記 `hg-ziwei-last` |
 
 `index.html` 是大廳頁，會讀取各遊戲的最佳成績。
 
