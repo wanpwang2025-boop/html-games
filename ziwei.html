@@ -98,6 +98,7 @@ footer{text-align:center;color:#6b8aa3;font-size:12.5px;margin-top:26px;line-hei
 <div><label>出生地真太陽時修正</label><select id="set-loc"></select> <span id="lonbox" style="display:none">經度 <input id="set-lon" type="number" step="0.01" value="121.56" style="width:90px">°E</span></div>
 <div><label>夜子時歸屬</label><select id="set-zishi"><option value="next">23:00後歸次日（專業・預設）</option><option value="same">子時歸當日</option></select></div>
 <div><label>換年以</label><select id="set-liChun"><option value="lunar">農曆正月初一換年</option><option value="lichun">立春換年（八字派）</option></select></div>
+<div><label>五行局起法</label><select id="set-ju"><option value="0">自動（命宮納音・主流）</option><option value="2">手動・水二局</option><option value="3">手動・木三局</option><option value="4">手動・金四局</option><option value="5">手動・土五局</option><option value="6">手動・火六局</option></select></div>
 </div>
 <p id="set-info" style="color:#9fc3dd;font-size:12.5px;margin-top:8px"></p>
 </div>
@@ -275,20 +276,22 @@ function brightness(star,zhi){
 function anChart(o){
  // o: {lunarY,lunarM,lunarD,leap, hZhi(-1不明), sex, yGan,yZhi, dGan,dZhi, solar}
  const lunarM=o.lunarM, hZhi=o.hZhi;
- // 命宮：寅起正月順至生月，逆至生時
+ // 命宮：寅起正月順至生月，逆至生時（子時歸月宮，丑時逆一…）
  let mingZhi;
  if(hZhi<0){mingZhi=(YIN+(lunarM-1))%12;} // 時不明：以月宮為命宮，後續標示
- else{mingZhi=(YIN+(lunarM-1)-hZhi+YIN+120)%12;}
- // 身宮：寅起正月順至生月，順至生時
- let shenZhi=hZhi<0?(YIN+(lunarM-1))%12:(YIN+(lunarM-1)+hZhi-YIN+120)%12;
+ else{mingZhi=(YIN+(lunarM-1)-hZhi+120)%12;}
+ // 身宮：寅起正月順至生月，順至生時（子時歸月宮，丑時順一…）
+ let shenZhi=hZhi<0?(YIN+(lunarM-1))%12:(YIN+(lunarM-1)+hZhi)%12;
  // 命宮天干（五虎遁，以年干＋命宮地支所屬月份寅月起算）
  const mganFn=wuhuDun(o.yGan);
  // 命宮在地支序中對應的「寅月數」：寅=1卯=2...
  let mingMonthIdx=((mingZhi-YIN+12)%12)+1;
  let mingGan=mganFn(mingMonthIdx);
- // 五行局
+ // 五行局（預設命宮納音；手動覆寫供他派掌訣用）
  let juKey=GAN[mingGan]+ZHI[mingZhi];
- let ju=NAYIN_JU[juKey]||3;
+ let juAuto=NAYIN_JU[juKey]||3;
+ let ju=o.juOverride>0?o.juOverride:juAuto;
+ let juManual=o.juOverride>0;
  // 紫微
  let day=o.lunarD, N=ju;
  let q=Math.floor(day/N), r=day%N, zw;
@@ -357,7 +360,7 @@ function anChart(o){
  // 博士十二神隨祿存順逆
  const BS=["博士","力士","青龍","小耗","將軍","奏書","飛廉","喜神","病符","大耗","伏兵","官府"];
  if(lu!==undefined){for(let i=0;i<12;i++){let z=isYang?(lu+i)%12:(lu-i+120)%12;pal[z].bs=BS[i];}}
- return {pal,mingZhi,shenZhi,mingGan,ju,juKey,zw,tf,tags,isYang,lu};
+ return {pal,mingZhi,shenZhi,mingGan,ju,juKey,juManual,zw,tf,tags,isYang,lu};
 }
 function daxian(chart,o){
  const start=chart.ju; // 幾歲起
@@ -411,6 +414,7 @@ function initSel(){
    if(s.lon)$("set-lon").value=s.lon;
    if(s.zs)$("set-zishi").value=s.zs;
    if(s.lc)$("set-liChun").value=s.lc;
+   if(s.ju!==undefined)$("set-ju").value=s.ju;
    let l=JSON.parse(localStorage.getItem("hg-ziwei-last")||"null");
    if(l){$("mode").value=l.mode||"solar";if(l.solar)$("in-solar").value=l.solar;
      if(l.ly)$("in-ly").value=l.ly;if(l.lm)$("in-lm").value=l.lm;if(l.ld)$("in-ld").value=l.ld;
@@ -423,8 +427,8 @@ function updSet(){
  $("lonbox").style.display=LOCS[li][1]===-1?"inline":"none";
  let lon=LOCS[li][1]===-1?+$("set-lon").value:LOCS[li][1];
  let adj=lon?((lon-120)*4).toFixed(1):"0";
- $("set-info").textContent=`真太陽時修正：${LOCS[li][0]}（約${adj}分）｜夜子時：${$("set-zishi").selectedOptions[0].text}｜換年：${$("set-liChun").selectedOptions[0].text}`;
- try{localStorage.setItem("hg-ziwei-set",JSON.stringify({loc:$("set-loc").value,lon:$("set-lon").value,zs:$("set-zishi").value,lc:$("set-liChun").value}));}catch(e){}
+ $("set-info").textContent=`真太陽時修正：${LOCS[li][0]}（約${adj}分）｜夜子時：${$("set-zishi").selectedOptions[0].text}｜換年：${$("set-liChun").selectedOptions[0].text}｜五行局：${$("set-ju").selectedOptions[0].text}`;
+ try{localStorage.setItem("hg-ziwei-set",JSON.stringify({loc:$("set-loc").value,lon:$("set-lon").value,zs:$("set-zishi").value,lc:$("set-liChun").value,ju:$("set-ju").value}));}catch(e){}
 }
 let LAST=null;
 function collect(){
@@ -479,7 +483,7 @@ function collect(){
  // 時干支
  let hGan=hSel<0?-1:(wuziDun(dGan))(hSel);
  try{localStorage.setItem("hg-ziwei-last",JSON.stringify({mode,solar:$("in-solar").value,ly:$("in-ly").value,lm:$("in-lm").value,ld:$("in-ld").value,time:$("in-time").value,sex,name}));}catch(e){}
- return {warn,solar,lunar,hSel,sex,name,dGan,dZhi,mGan,mZhi,hGan,yGan:lunar.yGan,yZhi:lunar.yZhi};
+ return {warn,solar,lunar,hSel,sex,name,dGan,dZhi,mGan,mZhi,hGan,yGan:lunar.yGan,yZhi:lunar.yZhi,juOverride:+$("set-ju").value};
 }
 function hzTag(h,i){
  if(i==="祿")return `<span class="tag t-lu">化祿</span>`;
@@ -498,7 +502,7 @@ function render(){
  let c=collect();
  if(c.warn&&!c.solar){$("warn").innerHTML=c.warn.join("<br>");return;}
  $("warn").innerHTML=(c.warn||[]).join("<br>");
- let chart=anChart({lunarY:c.lunar.y,lunarM:c.lunar.m,lunarD:c.lunar.d,leap:c.lunar.leap,hZhi:c.hSel,sex:c.sex,yGan:c.yGan,yZhi:c.yZhi,dGan:c.dGan,dZhi:c.dZhi});
+ let chart=anChart({lunarY:c.lunar.y,lunarM:c.lunar.m,lunarD:c.lunar.d,leap:c.lunar.leap,hZhi:c.hSel,sex:c.sex,yGan:c.yGan,yZhi:c.yZhi,dGan:c.dGan,dZhi:c.dZhi,juOverride:c.juOverride});
  let nowY=+$("in-year").value||new Date().getFullYear();
  let lnZhi=liunianX(nowY);
  LAST={c,chart,nowY,lnZhi};
@@ -512,7 +516,7 @@ function render(){
      if(z===-1){
         if(!centerDone){
           centerDone=true;
-          html+=`<div id="centerbox"><div class="yin">☯️</div><div class="t">${c.name?c.name+"・":""}${c.sex==="M"?"乾造":"坤造"}</div><div class="ju">${JU_NAME[chart.ju]}・${chart.juKey}納音</div><div class="rows"><div>📅 國曆<br><b>${c.solar.y}/${c.solar.m}/${c.solar.d}</b></div><div>🌙 農曆<br><b>${c.lunar.y}年${c.lunar.leap?"閏":""}${c.lunar.m}月${c.lunar.d}日</b></div><div>📜 年干<br><b>${GAN[c.yGan]}${ZHI[c.yZhi]}</b>（${SX[c.yZhi]}）</div><div>🕐 月日時<br><b>${GAN[c.mGan]}${ZHI[c.mZhi]}・${GAN[c.dGan]}${ZHI[c.dZhi]}${c.hSel<0?"・時不明":("・"+GAN[c.hGan]+ZHI[c.hSel])}</b></div><div>🏠 命宮<br><b>${GAN[chart.mingGan]}${ZHI[chart.mingZhi]}</b>・紫微${ZHI[chart.zw]}</div><div>👤 身宮<br><b>${ZHI[chart.shenZhi]}宮</b>・天府${ZHI[chart.tf]}</div></div><div class="foot-c">虛歲${age}歲・${nowY}年流年入${ZHI[lnZhi]}（${chart.pal[lnZhi].gong}）</div></div>`;
+          html+=`<div id="centerbox"><div class="yin">☯️</div><div class="t">${c.name?c.name+"・":""}${c.sex==="M"?"乾造":"坤造"}</div><div class="ju">${JU_NAME[chart.ju]}・${chart.juKey}納音${chart.juManual?"・手動":""}</div><div class="rows"><div>📅 國曆<br><b>${c.solar.y}/${c.solar.m}/${c.solar.d}</b></div><div>🌙 農曆<br><b>${c.lunar.y}年${c.lunar.leap?"閏":""}${c.lunar.m}月${c.lunar.d}日</b></div><div>📜 年干<br><b>${GAN[c.yGan]}${ZHI[c.yZhi]}</b>（${SX[c.yZhi]}）</div><div>🕐 月日時<br><b>${GAN[c.mGan]}${ZHI[c.mZhi]}・${GAN[c.dGan]}${ZHI[c.dZhi]}${c.hSel<0?"・時不明":("・"+GAN[c.hGan]+ZHI[c.hSel])}</b></div><div>🏠 命宮<br><b>${GAN[chart.mingGan]}${ZHI[chart.mingZhi]}</b>・紫微${ZHI[chart.zw]}</div><div>👤 身宮<br><b>${ZHI[chart.shenZhi]}宮</b>・天府${ZHI[chart.tf]}</div></div><div class="foot-c">虛歲${age}歲・${nowY}年流年入${ZHI[lnZhi]}（${chart.pal[lnZhi].gong}）</div></div>`;
         }
        return;
      }
@@ -536,7 +540,7 @@ function render(){
  // 基本資料卡
  let four=Object.keys(chart.tags).map(k=>`${k}化${{祿:"祿",權:"權",科:"科",忌:"忌"}[chart.tags[k]]}`).join("・");
  $("baseinfo").innerHTML=`<div class="grid">
- <div class="card"><h3>📌 基本資料</h3><p>年干支 <b>${GAN[c.yGan]}${ZHI[c.yZhi]}</b>（生肖${SX[c.yZhi]}・${[0,2,4,6,8].includes(c.yGan)?"陽":"陰"}${c.sex==="M"?"男":"女"}・${chart.isYang?"順行大限":"逆行大限"}）<br>月干支 <b>${GAN[c.mGan]}${ZHI[c.mZhi]}</b>・日干支 <b>${GAN[c.dGan]}${ZHI[c.dZhi]}</b>${c.hSel<0?"・<b class=mid>時辰不明</b>":("・時干支 <b>"+GAN[c.hGan]+ZHI[c.hSel]+"</b>")}<br>五行局 <b class="mid">${JU_NAME[chart.ju]}</b>（${chart.juKey}納音）・紫微在<b>${ZHI[chart.zw]}</b>・天府在<b>${ZHI[chart.tf]}</b></p></div>
+ <div class="card"><h3>📌 基本資料</h3><p>年干支 <b>${GAN[c.yGan]}${ZHI[c.yZhi]}</b>（生肖${SX[c.yZhi]}・${[0,2,4,6,8].includes(c.yGan)?"陽":"陰"}${c.sex==="M"?"男":"女"}・${chart.isYang?"順行大限":"逆行大限"}）<br>月干支 <b>${GAN[c.mGan]}${ZHI[c.mZhi]}</b>・日干支 <b>${GAN[c.dGan]}${ZHI[c.dZhi]}</b>${c.hSel<0?"・<b class=mid>時辰不明</b>":("・時干支 <b>"+GAN[c.hGan]+ZHI[c.hSel]+"</b>")}<br>五行局 <b class="mid">${JU_NAME[chart.ju]}</b>（${chart.juKey}納音${chart.juManual?"・手動覆寫":""}）・紫微在<b>${ZHI[chart.zw]}</b>・天府在<b>${ZHI[chart.tf]}</b></p></div>
  <div class="card"><h3>✨ 生年四化</h3><p class="big" style="font-size:16px">${four}</p><p>祿＝財緣機會・權＝掌權企圖・科＝名聲貴人・忌＝欠債操心。化忌所在宮即一生最用力也最糾結處。</p></div>
  <div class="card"><h3>🧭 三方四正速覽</h3><p>${sanfangText(chart)}</p></div>
  </div>`;
@@ -639,7 +643,7 @@ document.querySelectorAll(".tabs button").forEach(b=>{b.onclick=()=>{
  ["chart","detail","da","dict","help"].forEach(t=>$("p-"+t).style.display=t===b.dataset.t?"":"none");
 };});
 $("mode").onchange=()=>{let m=$("mode").value;$("box-solar").style.display=m==="solar"?"":"none";$("box-lunar").style.display=m==="lunar"?"":"none";};
-$("set-loc").onchange=updSet;$("set-lon").oninput=updSet;$("set-zishi").onchange=updSet;$("set-liChun").onchange=updSet;
+$("set-loc").onchange=updSet;$("set-lon").oninput=updSet;$("set-zishi").onchange=updSet;$("set-liChun").onchange=updSet;$("set-ju").onchange=()=>{updSet();render();};
 $("btn-go").onclick=render;
 $("btn-year").onclick=()=>{if(!LAST)render();else{LAST.nowY=+$("in-year").value||new Date().getFullYear();LAST.lnZhi=liunianX(LAST.nowY);renderDA();document.querySelector('[data-t="da"]').click();}};
 $("btn-demo").onclick=()=>{$("mode").value="solar";$("in-solar").value="1993-08-15";$("in-time").value="6";$("in-sex").value="F";$("in-name").value="範例";$("in-year").value=new Date().getFullYear();render();};
