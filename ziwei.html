@@ -36,28 +36,52 @@ th,td{border:1px solid rgba(255,255,255,.18);padding:7px 8px;text-align:center;l
 th{background:rgba(255,209,102,.15);color:#ffd166}
 td.hl{background:rgba(255,209,102,.14)}
 a{color:#8fd6ff}
-/* 命盤 4x4 */
-#chart{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
-.gong{background:rgba(8,20,32,.85);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:10px;min-height:168px;position:relative;display:flex;flex-direction:column}
-.gong.ming{border-color:#ffd166;box-shadow:0 0 0 1px #ffd166 inset}
+/* 命盤 4x4・命書質感 */
+#chart{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px;background:linear-gradient(180deg,rgba(255,209,102,.07),rgba(255,209,102,.02));border:1px solid rgba(255,209,102,.35);border-radius:18px;padding:12px;box-shadow:0 10px 40px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.05)}
+#legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:#9fc3dd}
+#legend .lg{border:1px solid rgba(255,255,255,.2);border-radius:99px;padding:2px 10px;background:rgba(8,20,32,.7)}
+.gong{background:linear-gradient(180deg,rgba(20,38,58,.95),rgba(8,20,32,.92));border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:0;min-height:190px;position:relative;display:flex;flex-direction:column;overflow:hidden;transition:transform .15s,box-shadow .15s}
+.gong:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.gong.ming{border:1.5px solid #ffd166;box-shadow:0 0 0 1px rgba(255,209,102,.5),0 0 22px rgba(255,209,102,.25)}
 .gong.shen{border-color:#8fd6ff}
-.gong .gt{font-size:14px;font-weight:900;color:#ffd166;display:flex;justify-content:space-between;align-items:center}
-.gong .gz{font-size:12px;color:#9fc3dd}
-.gong .stars{margin-top:6px;font-size:13px;line-height:1.65}
-.gong .stars .m{color:#ffd166;font-weight:800}
-.gong .stars .a{color:#8fd6ff}
-.gong .stars .s{color:#c9b8ff}
-.gong .stars .h{color:#7dff9e}
-.gong .foot{margin-top:auto;font-size:11.5px;color:#9fc3dd;line-height:1.6;border-top:1px dashed rgba(255,255,255,.15);padding-top:4px}
-.gong .dx{font-size:11.5px;color:#ffe9a8}
-#centerbox{grid-column:2/4;grid-row:2/4;background:linear-gradient(180deg,#13293f,#0b1622);border:1px solid rgba(255,209,102,.5);border-radius:12px;padding:14px;text-align:center;display:flex;flex-direction:column;justify-content:center}
-#centerbox .t{font-size:20px;font-weight:900;color:#ffd166}
-#centerbox .s{font-size:13px;color:#dce8f2;line-height:1.8;margin-top:6px}
+.gong.liu{border:1.5px solid #ff9d9d;box-shadow:0 0 0 1px rgba(255,157,157,.5),0 0 18px rgba(255,100,100,.22)}
+.gong .gt{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.12)}
+.gong.ming .gt{background:linear-gradient(90deg,rgba(255,209,102,.35),rgba(255,159,28,.18))}
+.gong.liu .gt{background:linear-gradient(90deg,rgba(255,100,100,.3),rgba(255,100,100,.08))}
+.gong .gn{font-size:15px;font-weight:900;color:#ffd166;letter-spacing:1px}
+.gong.liu .gn{color:#ff9d9d}
+.gong .gz{font-size:12px;color:#0b1622;background:#ffd166;border-radius:99px;padding:1px 9px;font-weight:800}
+.gong .zb{position:absolute;right:6px;bottom:34px;font-size:52px;font-weight:900;color:rgba(255,255,255,.06);pointer-events:none;line-height:1}
+.gong .stars{padding:8px 10px 4px;font-size:13.5px;line-height:1.5}
+.gong .st{display:flex;align-items:center;gap:5px;margin:2.5px 0;flex-wrap:wrap}
+.gong .st .sn{font-weight:800;font-size:14.5px}
+.gong .st.m .sn{color:#ffd166}
+.gong .st.a .sn{color:#8fd6ff;font-size:13.5px}
+.gong .st.s .sn{color:#d3a6ff;font-size:13.5px}
+.sb{font-size:10.5px;font-weight:800;border-radius:6px;padding:0 5px;border:1px solid rgba(255,255,255,.25);color:#cfe0ef}
+.sb-miao{background:rgba(255,209,102,.28);color:#ffd166;border-color:#ffd166}
+.sb-wang{background:rgba(67,233,123,.22);color:#7dff9e;border-color:#43e97b}
+.sb-de{background:rgba(143,214,255,.2);color:#8fd6ff;border-color:#8fd6ff}
+.sb-li{background:rgba(255,255,255,.12);color:#dce8f2}
+.sb-ping{background:rgba(255,255,255,.06);color:#9fc3dd}
+.sb-xian{background:rgba(255,100,100,.2);color:#ff9d9d;border-color:#ff9d9d}
+.gong .foot{margin-top:auto;font-size:11.5px;color:#9fc3dd;line-height:1.7;border-top:1px dashed rgba(255,255,255,.15);padding:5px 10px 7px;background:rgba(0,0,0,.2)}
+.gong .dx{color:#ffe9a8}
+.gong .dx.now{color:#ff9d9d;font-weight:800}
+.badge{display:inline-block;font-size:10.5px;font-weight:900;border-radius:99px;padding:0 7px;margin-left:4px;vertical-align:1px}
+.b-ming{background:#ffd166;color:#3a2200}.b-shen{background:#8fd6ff;color:#06283f}.b-liu{background:#ff9d9d;color:#3f0606}
+#centerbox{grid-column:2/4;grid-row:2/4;background:radial-gradient(600px 300px at 50% 0%,#1e3d5c,#0b1622 70%);border:1.5px solid rgba(255,209,102,.6);border-radius:14px;padding:14px 16px;text-align:center;display:flex;flex-direction:column;justify-content:center;box-shadow:inset 0 0 0 1px rgba(255,209,102,.25),0 0 26px rgba(255,209,102,.15)}
+#centerbox .yin{font-size:34px;line-height:1;filter:drop-shadow(0 0 8px rgba(255,209,102,.5))}
+#centerbox .t{font-size:21px;font-weight:900;color:#ffd166;margin-top:4px}
+#centerbox .ju{display:inline-block;margin:6px auto 0;background:linear-gradient(180deg,#ffd166,#ff9f1c);color:#3a2200;font-weight:900;font-size:12.5px;border-radius:99px;padding:2px 14px}
+#centerbox .rows{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:10px;text-align:left;font-size:12.5px;color:#dce8f2;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;line-height:1.7}
+#centerbox .rows b{color:#ffe9a8}
+#centerbox .foot-c{margin-top:8px;font-size:12px;color:#8fd6ff}
 .tag{display:inline-block;border-radius:99px;padding:1px 8px;font-size:11.5px;font-weight:800;margin:1px 2px;border:1px solid rgba(255,255,255,.25)}
 .t-lu{background:rgba(67,233,123,.2);color:#7dff9e}.t-quan{background:rgba(143,214,255,.2);color:#8fd6ff}.t-ke{background:rgba(255,209,102,.2);color:#ffe9a8}.t-ji{background:rgba(255,100,100,.22);color:#ff9d9d}
 footer{text-align:center;color:#6b8aa3;font-size:12.5px;margin-top:26px;line-height:1.9}
-@media(max-width:720px){#chart{grid-template-columns:repeat(2,1fr)}#centerbox{grid-column:1/3;grid-row:auto}header h1{font-size:25px}}
-@media print{.tabs,.row,footer,header p,.notice,#setbar,#btnbar{display:none!important}body{background:#fff;color:#000}#app{background:#fff}.panel,.card,.gong,#centerbox{background:#fff!important;color:#000!important;border:1px solid #999}.card p,.card li,#centerbox .s{color:#000!important}}
+@media(max-width:720px){#chart{grid-template-columns:repeat(2,1fr);padding:8px}#centerbox{grid-column:1/3;grid-row:auto}#centerbox .rows{grid-template-columns:1fr}header h1{font-size:25px}.gong .zb{font-size:40px}}
+@media print{.tabs,.row,footer,header p,.notice,#setbar,#btnbar,#legend{display:none!important}body{background:#fff;color:#000}#app{background:#fff}.panel,.card,.gong,#centerbox{background:#fff!important;color:#000!important;border:1px solid #999}.card p,.card li,#centerbox .s{color:#000!important}.gong .st.m .sn,.gong .gn,#centerbox .t{color:#000!important}.gong .gz{background:#eee!important;color:#000!important}.gong .zb{display:none}}
 </style>
 </head>
 <body>
@@ -105,6 +129,7 @@ footer{text-align:center;color:#6b8aa3;font-size:12.5px;margin-top:26px;line-hei
 
 <div class="panel" id="p-chart">
 <h2>☯️ 十二宮命盤</h2>
+<div id="legend"><span class="lg">🌟金色＝十四主星</span><span class="lg">💧藍色＝左右昌曲魁鉞祿存</span><span class="lg">💜紫色＝煞曜空劫馬</span><span class="lg"><span class="sb sb-miao">廟</span> <span class="sb sb-wang">旺</span> <span class="sb sb-de">得</span> <span class="sb sb-li">利</span> <span class="sb sb-ping">平</span> <span class="sb sb-xian">陷</span>＝亮度</span><span class="lg"><span class="badge b-ming">命</span>命宮 <span class="badge b-shen">身</span>身宮 <span class="badge b-liu">流年</span>今年</span></div>
 <div id="chart"></div>
 <div id="baseinfo"></div>
 </div>
@@ -242,8 +267,9 @@ function wuhuDun(yGan){ // 月干：甲己起甲寅
 function wuziDun(dGan){const start=[0,2,4,6,8][dGan%5];return (h)=>(start+h)%10;}
 function brightness(star,zhi){
  const s=MIAO[star];if(!s)return "平";
- const ch=s[ZHI[zhi]]||s[zhi]||"平";
- return {廟:"廟",旺:"旺",得:"得",利:"利",平:"平",陷:"陷"}[ch]||"平";
+ const target=ZHI[zhi];
+ for(let k=0;k+1<s.length;k+=2){if(s[k]===target){const g=s[k+1];return {廟:"廟",旺:"旺",得:"得",利:"利",平:"平",陷:"陷"}[g]||"平";}}
+ return "平";
 }
 /* ============ 安星 ============ */
 function anChart(o){
@@ -461,6 +487,13 @@ function hzTag(h,i){
  if(i==="科")return `<span class="tag t-ke">化科</span>`;
  return `<span class="tag t-ji">化忌</span>`;
 }
+const MAINS=["紫微","天機","太陽","武曲","天同","廉貞","天府","太陰","貪狼","巨門","天相","天梁","七殺","破軍"];
+function bBadge(star,z){
+ if(!MAINS.includes(star))return "";
+ const b=brightness(star,z);
+ const cls={"廟":"sb-miao","旺":"sb-wang","得":"sb-de","利":"sb-li","平":"sb-ping","陷":"sb-xian"}[b]||"sb-ping";
+ return `<span class="sb ${cls}">${b}</span>`;
+}
 function render(){
  let c=collect();
  if(c.warn&&!c.solar){$("warn").innerHTML=c.warn.join("<br>");return;}
@@ -477,21 +510,26 @@ function render(){
  order.forEach(row=>{
    row.forEach(z=>{
      if(z===-1){
-       if(!centerDone){
-         centerDone=true;
-         html+=`<div id="centerbox"><div class="t">${c.name?c.name+"・":""}${c.sex==="M"?"乾造":"坤造"} ${JU_NAME[chart.ju]}</div><div class="s">國曆 ${c.solar.y}/${c.solar.m}/${c.solar.d}・農曆 ${c.lunar.y}年${c.lunar.leap?"閏":""}${c.lunar.m}月${c.lunar.d}日<br>${GAN[c.yGan]}${ZHI[c.yZhi]}年 ${GAN[c.mGan]}${ZHI[c.mZhi]}月 ${GAN[c.dGan]}${ZHI[c.dZhi]}日${c.hSel<0?"・時辰不明":(" "+GAN[c.hGan]+ZHI[c.hSel]+"時")}<br>命宮${GAN[chart.mingGan]}${ZHI[chart.mingZhi]}（${chart.juKey}・${JU_NAME[chart.ju]}）・身宮${ZHI[chart.shenZhi]}<br>虛歲${age}歲・${nowY}年流年${ZHI[lnZhi]}宮・生肖${SX[c.yZhi]}</div></div>`;
-       }
+        if(!centerDone){
+          centerDone=true;
+          html+=`<div id="centerbox"><div class="yin">☯️</div><div class="t">${c.name?c.name+"・":""}${c.sex==="M"?"乾造":"坤造"}</div><div class="ju">${JU_NAME[chart.ju]}・${chart.juKey}納音</div><div class="rows"><div>📅 國曆<br><b>${c.solar.y}/${c.solar.m}/${c.solar.d}</b></div><div>🌙 農曆<br><b>${c.lunar.y}年${c.lunar.leap?"閏":""}${c.lunar.m}月${c.lunar.d}日</b></div><div>📜 年干<br><b>${GAN[c.yGan]}${ZHI[c.yZhi]}</b>（${SX[c.yZhi]}）</div><div>🕐 月日時<br><b>${GAN[c.mGan]}${ZHI[c.mZhi]}・${GAN[c.dGan]}${ZHI[c.dZhi]}${c.hSel<0?"・時不明":("・"+GAN[c.hGan]+ZHI[c.hSel])}</b></div><div>🏠 命宮<br><b>${GAN[chart.mingGan]}${ZHI[chart.mingZhi]}</b>・紫微${ZHI[chart.zw]}</div><div>👤 身宮<br><b>${ZHI[chart.shenZhi]}宮</b>・天府${ZHI[chart.tf]}</div></div><div class="foot-c">虛歲${age}歲・${nowY}年流年入${ZHI[lnZhi]}（${chart.pal[lnZhi].gong}）</div></div>`;
+        }
        return;
      }
      let p=chart.pal[z];
-     let cls=p.ming?"gong ming":(p.shen?"gong shen":"gong");
+     let isLiu=(z===lnZhi);
+     let cls=p.ming?"gong ming":(isLiu?"gong liu":(p.shen?"gong shen":"gong"));
      let stars=p.stars.map(s=>{
-       let b=["紫微","天機","太陽","武曲","天同","廉貞","天府","太陰","貪狼","巨門","天相","天梁","七殺","破軍"].includes(s.n)?` <span style="color:#9fc3dd">${brightness(s.n,z)}</span>`:"";
+       let b=bBadge(s.n,z);
        let h=s.h?hzTag(0,s.h):"";
-       let cl=s.t==="m"?"m":(s.t==="a"?"a":"s");
-       return `<div class="${cl}">${s.n}${b}${h}</div>`;
-     }).join("")||`<div style="color:#4a657a">（無主輔星）</div>`;
-     html+=`<div class="${cls}"><div class="gt"><span>${p.gong}${p.ming?" ★":""}${p.shen?"・身":""}</span><span class="gz">${GAN[p.gan]}${ZHI[z]}</span></div><div class="stars">${stars}</div><div class="foot">${p.cs||""}${p.cs?"・":""}${p.bs||""}<br><span class="dx">大限${daxianFor(chart,c,z,nowY)}</span></div></div>`;
+       let cl=s.t==="m"?"st m":(s.t==="a"?"st a":"st s");
+       return `<div class="${cl}"><span class="sn">${s.n}</span>${b}${h}</div>`;
+     }).join("")||`<div style="color:#4a657a;padding:6px 0">（無主輔星・借對宮）</div>`;
+     let badges=(p.ming?`<span class="badge b-ming">命</span>`:"")+(p.shen?`<span class="badge b-shen">身</span>`:"")+(isLiu?`<span class="badge b-liu">流年</span>`:"");
+     let dxTxt=daxianFor(chart,c,z,nowY);
+     let isNow=false;
+     {let age2=nowY-c.solar.y+1;let dx=daxian(chart,c);let cur=dx.find(d=>age2>=d.from&&age2<=d.to);isNow=cur&&cur.zhi===z;}
+     html+=`<div class="${cls}"><div class="gt"><span class="gn">${p.gong}${badges}</span><span class="gz">${GAN[p.gan]}${ZHI[z]}</span></div><div class="zb">${ZHI[z]}</div><div class="stars">${stars}</div><div class="foot">${p.cs||""}${p.cs?"・":""}${p.bs||""}<br><span class="dx${isNow?" now":""}">大限 ${dxTxt}${isNow?" ●":""}</span></div></div>`;
    });
  });
  $("chart").innerHTML=html;
